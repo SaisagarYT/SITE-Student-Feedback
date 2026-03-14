@@ -1,17 +1,12 @@
+const express = require("express");
 const {submitFeedback} = require("../controllers/feedbackController");
 
-async function feedbackRouteHandler(req, res) {
-  if (req.method === "OPTIONS") {
-    res.status(204).send("");
-    return;
-  }
+const feedbackRouter = express.Router();
 
-  if (req.method !== "POST") {
-    res.status(405).json({message: "Method not allowed. Use POST."});
-    return;
-  }
+feedbackRouter.post("/", submitFeedback);
 
-  await submitFeedback(req, res);
-}
+feedbackRouter.all("/", (_req, res) => {
+  res.status(405).json({message: "Method not allowed. Use POST."});
+});
 
-module.exports = {feedbackRouteHandler};
+module.exports = {feedbackRouter};

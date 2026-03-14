@@ -1,9 +1,9 @@
 const {FieldValue} = require("firebase-admin/firestore");
 
-const USERS_COLLECTION = "users";
+const STUDENTS_COLLECTION = "students";
 
 /**
- * users/{studentId}
+ * students/{studentId}
  * Stores student identity and profile details.
  * Document ID is the studentId so upsert with merge avoids duplicates.
  */
@@ -19,4 +19,4 @@ function buildUserDoc(payload) {
   };
 }
 
-module.exports = {USERS_COLLECTION, buildUserDoc};
+module.exports = {STUDENTS_COLLECTION, buildUserDoc};

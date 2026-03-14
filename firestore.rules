@@ -3,8 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // users — written by Cloud Function (server-side only)
-    match /users/{userId} {
+    // students — written by Cloud Function (server-side only)
+    match /students/{userId} {
       allow read, write: if false;
     }
 

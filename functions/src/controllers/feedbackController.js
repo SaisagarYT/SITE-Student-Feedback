@@ -1,10 +1,13 @@
 const {db} = require("../config/firebase");
-const {USERS_COLLECTION, buildUserDoc} = require("../models/userModel");
+const { FieldValue } = require("firebase-admin/firestore");
+const {STUDENTS_COLLECTION, buildUserDoc} = require("../models/userModel");
 const {
   FEEDBACK_COLLECTION,
   buildFeedbackDoc,
 } = require("../models/feedbackModel");
 const {validateFeedbackPayload} = require("../validators/feedbackValidator");
+
+//////////////////////////////////////// SUBMITTING THE FEEDBACK /////////////////////////////////////////////
 
 async function submitFeedback(req, res) {
   const validationError = validateFeedbackPayload(req.body);
@@ -14,16 +17,61 @@ async function submitFeedback(req, res) {
   }
 
   try {
-    // 1. Upsert student profile into `users` collection
-    const userRef = db
-        .collection(USERS_COLLECTION)
-        .doc(req.body.studentId.trim());
-    await userRef.set(buildUserDoc(req.body), {merge: true});
+    // 1. Upsert student profile into `students` collection
+    const userRef = db.collection(STUDENTS_COLLECTION).doc(req.body.studentId.trim());
+    const feedbackCollectionRef = db.collection(FEEDBACK_COLLECTION);
+    const feedbackRef = feedbackCollectionRef.doc();
+    // Store phase as subcollection under feedback doc, use studentId as doc ID
+    const feedbackPhaseRef = feedbackRef.collection(req.body.phase).doc(req.body.studentId);
 
-    // 2. Write feedback ratings/remark into `feedback` collection
-    const feedbackRef = await db
-        .collection(FEEDBACK_COLLECTION)
-        .add(buildFeedbackDoc(userRef.id, req.body));
+    // Main feedback doc: no ratings, just metadata (no remark)
+    const feedbackDoc = {
+      feedbackId: feedbackRef.id,
+      userId: userRef.id,
+      studentId: userRef.id,
+      phase: req.body.phase,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    // Subcollection doc: only ratings and remark
+    const phaseDoc = {
+      feedbackId: feedbackRef.id,
+      ratings: req.body.ratings,
+      remark: req.body.remark.trim(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    // Get user doc to update phaseCount
+
+    const studentSnap = await userRef.get();
+    let phaseCount = 1;
+    if (studentSnap.exists) {
+      const studentData = studentSnap.data();
+      // If phase1 and phase2 both exist, count = 2; else 1
+      const submittedPhases = studentData.submittedPhases || [];
+      if (!submittedPhases.includes(req.body.phase)) {
+        phaseCount = (submittedPhases.length || 0) + 1;
+      } else {
+        phaseCount = submittedPhases.length;
+      }
+    }
+
+    // Update student doc with phaseCount and submittedPhases, and always include email if present
+    const studentDoc = {
+      ...buildUserDoc(req.body),
+      ...(req.body.email ? { email: req.body.email } : {}),
+      phaseCount,
+      submittedPhases: FieldValue.arrayUnion(req.body.phase),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    const batch = db.batch();
+    batch.set(userRef, studentDoc, {merge: true});
+    batch.set(feedbackRef, feedbackDoc);
+    batch.set(feedbackPhaseRef, phaseDoc);
+    await batch.commit();
 
     res.status(201).json({
       message: "Feedback submitted successfully.",

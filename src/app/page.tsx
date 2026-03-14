@@ -22,9 +22,67 @@ export default function HomePage() {
   const [activePhase, setActivePhase] = useState<"phase1" | "phase2">("phase1");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // --- Move all variable and hook declarations above the return statement ---
+  const phase1 = feedbackPhases.find((phase) => phase.id === "phase1") ?? feedbackPhases[0];
+  const phase2 = feedbackPhases.find((phase) => phase.id === "phase2") ?? feedbackPhases[1] ?? feedbackPhases[0];
+  const phase1QuestionCount = phase1.questions.length;
+  const phase2QuestionCount = phase2.questions.length;
+  const phase1Complete =
+    Object.keys(phaseState.phase1.ratings).length === phase1QuestionCount &&
+    phaseState.phase1.remark.trim().length > 0;
+  const phase2Complete =
+    Object.keys(phaseState.phase2.ratings).length === phase2QuestionCount &&
+    phaseState.phase2.remark.trim().length > 0;
+  const activePhaseConfig = activePhase === "phase1" ? phase1 : phase2;
+  const activePhaseState = phaseState[activePhase];
+  const activePhaseComplete = activePhase === "phase1" ? phase1Complete : phase2Complete;
+  const activeQuestionCount = activePhaseConfig.questions.length;
+  const activePhaseTotalTasks = activeQuestionCount + 1;
+  const activePhaseCompletedTasks =
+    Object.keys(activePhaseState.ratings).length +
+    (activePhaseState.remark.trim() ? 1 : 0);
+  const progressPercent = useMemo(
+    () => Math.round((activePhaseCompletedTasks / activePhaseTotalTasks) * 100),
+    [activePhaseCompletedTasks, activePhaseTotalTasks]
+  );
+  const switchPhase = (nextPhase: "phase1" | "phase2") => {
+    if (!phaseContainerRef.current || nextPhase === activePhase) {
+      setActivePhase(nextPhase);
+      return;
+    }
+    const current = phaseContainerRef.current;
+    gsap.to(current, {
+      autoAlpha: 0,
+      y: -18,
+      duration: 0.24,
+      ease: "power2.in",
+      onComplete: () => {
+        setActivePhase(nextPhase);
+        requestAnimationFrame(() => {
+          if (!phaseContainerRef.current) return;
+          gsap.fromTo(
+            phaseContainerRef.current,
+            { autoAlpha: 0, y: 20 },
+            { autoAlpha: 1, y: 0, duration: 0.42, ease: "power3.out" }
+          );
+        });
+      },
+    });
+  };
+  const handleSubmit = () => {
+    if (!activePhaseComplete) return;
+    setIsSubmitting(true);
+    window.setTimeout(() => {
+      setIsSubmitting(false);
+      window.alert(
+        activePhase === "phase1"
+          ? "Phase 1 feedback submitted successfully."
+          : "Phase 2 feedback submitted successfully."
+      );
+    }, 700);
+  };
   useLayoutEffect(() => {
     if (!pageRef.current) return;
-
     const context = gsap.context(() => {
       gsap.fromTo(
         "[data-reveal]",
@@ -38,81 +96,9 @@ export default function HomePage() {
         }
       );
     }, pageRef);
-
     return () => context.revert();
   }, []);
-
-  const phase1 = feedbackPhases.find((phase) => phase.id === "phase1") ?? feedbackPhases[0];
-  const phase2 =
-    feedbackPhases.find((phase) => phase.id === "phase2") ??
-    feedbackPhases[1] ??
-    feedbackPhases[0];
-
-  const phase1QuestionCount = phase1.questions.length;
-  const phase2QuestionCount = phase2.questions.length;
-
-  const phase1Complete =
-    Object.keys(phaseState.phase1.ratings).length === phase1QuestionCount &&
-    phaseState.phase1.remark.trim().length > 0;
-
-  const phase2Complete =
-    Object.keys(phaseState.phase2.ratings).length === phase2QuestionCount &&
-    phaseState.phase2.remark.trim().length > 0;
-
-  const activePhaseConfig = activePhase === "phase1" ? phase1 : phase2;
-  const activePhaseState = phaseState[activePhase];
-  const activePhaseComplete = activePhase === "phase1" ? phase1Complete : phase2Complete;
-  const activeQuestionCount = activePhaseConfig.questions.length;
-  const activePhaseTotalTasks = activeQuestionCount + 1;
-  const activePhaseCompletedTasks =
-    Object.keys(activePhaseState.ratings).length +
-    (activePhaseState.remark.trim() ? 1 : 0);
-  const progressPercent = useMemo(
-    () => Math.round((activePhaseCompletedTasks / activePhaseTotalTasks) * 100),
-    [activePhaseCompletedTasks, activePhaseTotalTasks]
-  );
-
-  const switchPhase = (nextPhase: "phase1" | "phase2") => {
-    if (!phaseContainerRef.current || nextPhase === activePhase) {
-      setActivePhase(nextPhase);
-      return;
-    }
-
-    const current = phaseContainerRef.current;
-
-    gsap.to(current, {
-      autoAlpha: 0,
-      y: -18,
-      duration: 0.24,
-      ease: "power2.in",
-      onComplete: () => {
-        setActivePhase(nextPhase);
-
-        requestAnimationFrame(() => {
-          if (!phaseContainerRef.current) return;
-          gsap.fromTo(
-            phaseContainerRef.current,
-            { autoAlpha: 0, y: 20 },
-            { autoAlpha: 1, y: 0, duration: 0.42, ease: "power3.out" }
-          );
-        });
-      },
-    });
-  };
-
-  const handleSubmit = () => {
-    if (!activePhaseComplete) return;
-    setIsSubmitting(true);
-    window.setTimeout(() => {
-      setIsSubmitting(false);
-      window.alert(
-        activePhase === "phase1"
-          ? "Phase 1 feedback submitted successfully."
-          : "Phase 2 feedback submitted successfully."
-      );
-    }, 700);
-  };
-
+  // --- End move ---
   return (
     <main className="relative min-h-screen overflow-x-clip bg-(--page) text-(--ink)">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -120,12 +106,10 @@ export default function HomePage() {
         <div className="absolute -left-20 top-48 h-72 w-72 rounded-full bg-[rgba(239,42,113,0.14)] blur-[120px]" />
         <div className="absolute -right-24 top-24 h-80 w-80 rounded-full bg-[rgba(10,152,146,0.16)] blur-[130px]" />
       </div>
-
       <div ref={pageRef} className="relative pb-14">
         <FeedbackHeader
           activePhase={activePhase}
         />
-
         <section className="bg-[linear-gradient(180deg,var(--brand)_0%,var(--brand-deep)_100%)] py-10 sm:py-14">
           <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:px-8">
             <aside data-reveal className="sticky top-4 self-start lg:top-5">
@@ -148,7 +132,6 @@ export default function HomePage() {
                     />
                   </div>
                 </div>
-
                 <div className="space-y-3 px-5 py-5 sm:px-6">
                   <label htmlFor="phase-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72">
                     Select phase
@@ -168,7 +151,6 @@ export default function HomePage() {
                     </span>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 border-t border-white/14 bg-[rgba(6,92,89,0.28)]">
                   <div className="px-5 py-4 text-white sm:px-6">
                     <p className="text-3xl font-semibold">{Object.keys(activePhaseState.ratings).length}</p>
@@ -181,7 +163,6 @@ export default function HomePage() {
                 </div>
               </div>
             </aside>
-
             <div className="space-y-5">
               <div ref={phaseContainerRef}>
                 <PhaseSection
@@ -208,7 +189,6 @@ export default function HomePage() {
                   }}
                 />
               </div>
-
               <div data-reveal className="flex flex-col gap-3 rounded-[1.75rem] bg-white px-5 py-5 shadow-[0_18px_50px_rgba(9,58,70,0.16)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
                   <p className="text-xs font-semibold tracking-[0.22em] text-(--muted) uppercase">Navigation</p>
@@ -218,7 +198,6 @@ export default function HomePage() {
                       : "Review your ratings and submit once the phase is fully completed."}
                   </p>
                 </div>
-
                 <div className="flex items-center justify-end gap-3">
                   <button
                     type="button"
@@ -237,7 +216,6 @@ export default function HomePage() {
             </div>
           </div>
         </section>
-
         <footer data-reveal className="bg-(--ink) py-6 text-white">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 text-sm sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <span className="inline-flex items-center gap-2 text-white/78">
@@ -253,4 +231,5 @@ export default function HomePage() {
       </div>
     </main>
   );
-}
+}  // ...existing feedback homepage code here (move all code from the previous return statement)
+  // ...existing code...)}
