@@ -19,29 +19,30 @@ async function submitFeedback(req, res) {
   try {
     // 1. Upsert student profile into `students` collection
     const userRef = db.collection(STUDENTS_COLLECTION).doc(req.body.studentId.trim());
-    const feedbackCollectionRef = db.collection(FEEDBACK_COLLECTION);
-    const feedbackRef = feedbackCollectionRef.doc();
-    // Store phase as subcollection under feedback doc, use studentId as doc ID
-    const feedbackPhaseRef = feedbackRef.collection(req.body.phase).doc(req.body.studentId);
 
-    // Main feedback doc: no ratings, just metadata (no remark)
-    const feedbackDoc = {
-      feedbackId: feedbackRef.id,
-      userId: userRef.id,
-      studentId: userRef.id,
-      phase: req.body.phase,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    };
+    // Use studentId as feedback doc ID
+    const feedbackRef = db.collection(FEEDBACK_COLLECTION).doc(req.body.studentId.trim());
 
-    // Subcollection doc: only ratings and remark
+    // Prepare the phase data
     const phaseDoc = {
-      feedbackId: feedbackRef.id,
       ratings: req.body.ratings,
       remark: req.body.remark.trim(),
-      createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     };
+
+    // Prepare feedback doc update (merge phase into phases object)
+    const feedbackDocUpdate = {
+      userId: userRef.id,
+      studentId: userRef.id,
+      updatedAt: FieldValue.serverTimestamp(),
+      [`phases.${req.body.phase}`]: phaseDoc,
+    };
+
+    // If creating for the first time, add createdAt
+    const feedbackSnap = await feedbackRef.get();
+    if (!feedbackSnap.exists) {
+      feedbackDocUpdate.createdAt = FieldValue.serverTimestamp();
+    }
 
     // Get user doc to update phaseCount
 
@@ -67,10 +68,10 @@ async function submitFeedback(req, res) {
       updatedAt: FieldValue.serverTimestamp(),
     };
 
+
     const batch = db.batch();
     batch.set(userRef, studentDoc, {merge: true});
-    batch.set(feedbackRef, feedbackDoc);
-    batch.set(feedbackPhaseRef, phaseDoc);
+    batch.set(feedbackRef, feedbackDocUpdate, {merge: true});
     await batch.commit();
 
     res.status(201).json({

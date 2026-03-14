@@ -12,7 +12,9 @@ type AuthResponse = {
   message?: string;
 };
 
-export default function RegisterPage() {
+import { Suspense } from "react";
+
+function RegisterPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const idToken = searchParams.get("idToken");
@@ -45,7 +47,7 @@ export default function RegisterPage() {
         // Instead of alert, show a message on the page
         setSuccess(true);
         // Optionally redirect after a delay
-        setTimeout(() => router.replace("/authentication"), 2000);
+        setTimeout(() => router.replace("/feedback"), 2000);
       } else {
         setError(data.message || "Registration failed.");
       }
@@ -63,23 +65,32 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false);
   {console.log("Rendering registration form")}
 
+
   return (
     <div>
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-md space-y-4">
-        <h2 className="text-xl font-bold mb-4">Complete Registration</h2>
-        <input name="studentName" placeholder="Name" value={form.studentName} onChange={handleChange} required className="w-full border p-2 rounded" />
-        <input name="department" placeholder="Department" value={form.department} onChange={handleChange} required className="w-full border p-2 rounded" />
-        <input name="year" placeholder="Year" value={form.year} onChange={handleChange} required className="w-full border p-2 rounded" />
-        <input name="section" placeholder="Section" value={form.section} onChange={handleChange} required className="w-full border p-2 rounded" />
-        <input name="studentId" placeholder="Student ID" value={form.studentId} onChange={handleChange} required className="w-full border p-2 rounded" />
-        {error && <div className="text-red-600 text-sm">{error}</div>}
-        {success && <div className="text-green-600 text-sm">Registration successful! Redirecting...</div>}
-        <button type="submit" disabled={loading || success} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
-          {loading ? "Registering..." : "Register"}
-        </button>
-      </form>
+        <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-md space-y-4">
+          <h2 className="text-xl font-bold mb-4">Complete Registration</h2>
+          <input name="studentName" placeholder="Name" value={form.studentName} onChange={handleChange} required className="w-full border p-2 rounded" />
+          <input name="department" placeholder="Department" value={form.department} onChange={handleChange} required className="w-full border p-2 rounded" />
+          <input name="year" placeholder="Year" value={form.year} onChange={handleChange} required className="w-full border p-2 rounded" />
+          <input name="section" placeholder="Section" value={form.section} onChange={handleChange} required className="w-full border p-2 rounded" />
+          <input name="studentId" placeholder="Student ID" value={form.studentId} onChange={handleChange} required className="w-full border p-2 rounded" />
+          {error && <div className="text-red-600 text-sm">{error}</div>}
+          {success && <div className="text-green-600 text-sm">Registration successful! Redirecting...</div>}
+          <button type="submit" disabled={loading || success} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+            {loading ? "Registering..." : "Register"}
+          </button>
+        </form>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Loading registration...</div>}>
+      <RegisterPageInner />
+    </Suspense>
   );
 }

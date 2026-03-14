@@ -1,3 +1,16 @@
+/**
+ * Logout student by calling backend (if needed for session cleanup).
+ * @param {string} idToken - Firebase ID token from Google sign-in
+ * @returns {Promise<object>} Backend response
+ */
+export async function logoutStudent(idToken) {
+  const response = await fetch(`${BASE_URL}/api/student/logout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken }),
+  });
+  return response.json();
+}
 // src/api.js
 
 const BASE_URL = "https://feedback-mlxcleit7q-as.a.run.app";
