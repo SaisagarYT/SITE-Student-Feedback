@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --page: #edf4f2;
+  --surface: #ffffff;
+  --surface-soft: #eff7f5;
+  --line: #d0e3df;
+  --line-strong: #a8cbc5;
+  --ink: #13243d;
+  --muted: #627086;
+  --brand: #0a9892;
+  --brand-deep: #077874;
+  --accent: #ef2a71;
+  --accent-deep: #cb1c5f;
+  --accent-soft: #f5a3c0;
+  --highlight: #ffd166;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(900px 500px at 8% 10%, rgba(10, 152, 146, 0.08), transparent 60%),
+    radial-gradient(680px 420px at 92% 12%, rgba(239, 42, 113, 0.08), transparent 58%),
+    linear-gradient(180deg, #edf4f2 0%, #ecf4f3 100%);
+  color: var(--ink);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.rating-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 2px solid #eaf6f3;
+  background: var(--brand);
+  box-shadow: 0 0 0 1px rgba(10, 152, 146, 0.16), 0 10px 24px rgba(10, 152, 146, 0.22);
+  transition: transform 0.2s ease;
+}
+
+.rating-slider:active::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+
+.rating-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 2px solid #eaf6f3;
+  background: var(--brand);
+  box-shadow: 0 0 0 1px rgba(10, 152, 146, 0.16), 0 10px 24px rgba(10, 152, 146, 0.22);
+}
