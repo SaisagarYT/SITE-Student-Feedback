@@ -10,73 +10,43 @@ const {validateFeedbackPayload} = require("../validators/feedbackValidator");
 //////////////////////////////////////// SUBMITTING THE FEEDBACK /////////////////////////////////////////////
 
 async function submitFeedback(req, res) {
-  const validationError = validateFeedbackPayload(req.body);
-  if (validationError) {
-    res.status(400).json({message: validationError});
+  // Only require email, phase, ratings, remark
+  const { email, phase, ratings, remark } = req.body;
+  if (!email || typeof email !== "string" || !email.trim()) {
+    res.status(400).json({ message: "email is required and must be a string." });
+    return;
+  }
+  if (!phase || typeof phase !== "string" || !["phase1", "phase2"].includes(phase)) {
+    res.status(400).json({ message: "phase must be 'phase1' or 'phase2'." });
+    return;
+  }
+  if (!ratings || typeof ratings !== "object" || Array.isArray(ratings)) {
+    res.status(400).json({ message: "ratings is required and must be an object." });
+    return;
+  }
+  if (typeof remark !== "string" || !remark.trim()) {
+    res.status(400).json({ message: "remark is required and must be a string." });
     return;
   }
 
   try {
-    // 1. Upsert student profile into `students` collection
-    const userRef = db.collection(STUDENTS_COLLECTION).doc(req.body.studentId.trim());
-
-    // Use studentId as feedback doc ID
-    const feedbackRef = db.collection(FEEDBACK_COLLECTION).doc(req.body.studentId.trim());
-
-    // Prepare the phase data
+    // Store feedback in feedback/{email} with 'phase1' and 'phase2' fields
+    const feedbackDocRef = db.collection(FEEDBACK_COLLECTION).doc(email.trim());
     const phaseDoc = {
-      ratings: req.body.ratings,
-      remark: req.body.remark.trim(),
+      ratings,
+      remark: remark.trim(),
       updatedAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     };
-
-    // Prepare feedback doc update (merge phase into phases object)
-    const feedbackDocUpdate = {
-      userId: userRef.id,
-      studentId: userRef.id,
-      updatedAt: FieldValue.serverTimestamp(),
-      [`phases.${req.body.phase}`]: phaseDoc,
-    };
-
-    // If creating for the first time, add createdAt
-    const feedbackSnap = await feedbackRef.get();
-    if (!feedbackSnap.exists) {
-      feedbackDocUpdate.createdAt = FieldValue.serverTimestamp();
-    }
-
-    // Get user doc to update phaseCount
-
-    const studentSnap = await userRef.get();
-    let phaseCount = 1;
-    if (studentSnap.exists) {
-      const studentData = studentSnap.data();
-      // If phase1 and phase2 both exist, count = 2; else 1
-      const submittedPhases = studentData.submittedPhases || [];
-      if (!submittedPhases.includes(req.body.phase)) {
-        phaseCount = (submittedPhases.length || 0) + 1;
-      } else {
-        phaseCount = submittedPhases.length;
-      }
-    }
-
-    // Update student doc with phaseCount and submittedPhases, and always include email if present
-    const studentDoc = {
-      ...buildUserDoc(req.body),
-      ...(req.body.email ? { email: req.body.email } : {}),
-      phaseCount,
-      submittedPhases: FieldValue.arrayUnion(req.body.phase),
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-
-
-    const batch = db.batch();
-    batch.set(userRef, studentDoc, {merge: true});
-    batch.set(feedbackRef, feedbackDocUpdate, {merge: true});
-    await batch.commit();
+    // Set or update the document with the phase object and email at top level
+    await feedbackDocRef.set({
+      email: email.trim(),
+      [phase]: phaseDoc,
+    }, { merge: true });
 
     res.status(201).json({
       message: "Feedback submitted successfully.",
-      submissionId: feedbackRef.id,
+      submissionId: phase,
     });
   } catch (error) {
     console.error("Failed to store feedback submission", error);
@@ -86,4 +56,4 @@ async function submitFeedback(req, res) {
   }
 }
 
-module.exports = {submitFeedback};
+module.exports = { submitFeedback };

@@ -40,35 +40,11 @@ function validateFeedbackPayload(payload) {
     return "Request body is required.";
   }
 
-  const {
-    studentId,
-    studentName,
-    department,
-    year,
-    section,
-    phase,
-    ratings,
-    remark,
-  } = payload;
+
+  const { studentId, phase, ratings, remark } = payload;
 
   if (!studentId || typeof studentId !== "string" || !studentId.trim()) {
     return "studentId is required and must be a string.";
-  }
-
-  if (!studentName || typeof studentName !== "string" || !studentName.trim()) {
-    return "studentName is required and must be a string.";
-  }
-
-  if (!department || typeof department !== "string" || !department.trim()) {
-    return "department is required and must be a string.";
-  }
-
-  if (!year || typeof year !== "string" || !year.trim()) {
-    return "year is required and must be a string.";
-  }
-
-  if (!section || typeof section !== "string" || !section.trim()) {
-    return "section is required and must be a string.";
   }
 
   if (!ALLOWED_PHASES.has(phase)) {

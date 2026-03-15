@@ -26,6 +26,45 @@ type PhaseProgressState = {
 };
 
 export default function HomePage() {
+      const [authChecked, setAuthChecked] = useState(false);
+      const [isAuthed, setIsAuthed] = useState(false);
+
+      // Protect route: check for token cookie and localStorage user data
+      useEffect(() => {
+        function getCookie(name: string) {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; ${name}=`);
+          if (parts.length === 2) return parts.pop()?.split(';').shift();
+          return null;
+        }
+        const token = getCookie("token");
+        const studentName = typeof window !== "undefined" ? localStorage.getItem("studentName") : null;
+        const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : null;
+        if (!token || !studentName || !profileImage) {
+          window.location.href = "/";
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setIsAuthed(false);
+        } else {
+          setIsAuthed(true);
+        }
+        setAuthChecked(true);
+      }, []);
+    // Protect route: check for token cookie and localStorage user data
+    useEffect(() => {
+      // Helper to get cookie value
+      function getCookie(name: string) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift();
+        return null;
+      }
+      const token = getCookie("token");
+      const studentName = typeof window !== "undefined" ? localStorage.getItem("studentName") : null;
+      const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : null;
+      if (!token || !studentName || !profileImage) {
+        window.location.href = "/";
+      }
+    }, []);
   const pageRef = useRef<HTMLDivElement>(null);
   const phaseContainerRef = useRef<HTMLDivElement>(null);
   const [phaseState, setPhaseState] = useState<Record<"phase1" | "phase2", PhaseProgressState>>({
@@ -88,30 +127,23 @@ export default function HomePage() {
     // Get current user from Firebase Auth
     const auth = getAuth(firebaseApp);
     const user = auth.currentUser;
-    if (!user) {
+    if (!user || !user.email) {
       setIsSubmitting(false);
       window.alert("You must be signed in to submit feedback.");
       return;
     }
-    // Try to get student info from localStorage (set during registration)
-    const studentId = localStorage.getItem("studentId") || user.uid;
-    const studentName = localStorage.getItem("studentName") || user.displayName || "";
-    const department = localStorage.getItem("department") || "";
-    const year = localStorage.getItem("year") || "";
-    const section = localStorage.getItem("section") || "";
+    const email = user.email;
     const feedbackPayload = {
-      studentId,
-      studentName,
-      department,
-      year,
-      section,
+      email,
       phase: activePhase,
       ratings: activePhaseState.ratings,
       remark: activePhaseState.remark,
     };
+    console.log("Submitting feedback payload:", feedbackPayload);
     try {
       const result = await submitFeedbackToBackend(feedbackPayload);
       setIsSubmitting(false);
+      console.log("Backend feedback response:", result);
       if (result && result.message) {
         window.alert(result.message);
       } else {
@@ -140,6 +172,14 @@ export default function HomePage() {
     return () => context.revert();
   }, []);
   // --- End move ---
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-(--page)"><span className="text-lg text-(--muted)">Loading...</span></div>
+    );
+  }
+  if (!isAuthed) {
+    return null;
+  }
   return (
     <main className="relative min-h-screen overflow-x-clip bg-(--page) text-(--ink)">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">

@@ -86,16 +86,13 @@ const FeedbackHeader = ({ activePhase }: FeedbackHeaderProps) => {
             <button
               onClick={async () => {
                 if (typeof window !== "undefined") {
+                  // Remove all user-related data from localStorage
                   localStorage.removeItem("profileImage");
-                  // Remove the token cookie by setting it to expire in the past
+                  localStorage.removeItem("studentName");
+                  // Remove the token cookie
                   document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
                   try {
                     const auth = getAuth(app);
-                    const user = auth.currentUser;
-                    if (user) {
-                      const idToken = await user.getIdToken();
-                      await logoutStudent(idToken); // Call backend logout if needed
-                    }
                     await signOut(auth);
                   } catch (e) {
                     // ignore errors

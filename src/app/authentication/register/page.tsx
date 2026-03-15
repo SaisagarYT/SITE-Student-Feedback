@@ -20,11 +20,7 @@ function RegisterPageInner() {
   const idToken = searchParams.get("idToken");
 
   const [form, setForm] = useState({
-    studentName: "",
-    department: "",
-    year: "",
-    section: "",
-    studentId: "",
+    name: ""
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,15 +34,17 @@ function RegisterPageInner() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    console.log("Submitting registration with form:", form);
     try {
       if (!idToken) throw new Error("Missing ID token");
-      const data: AuthResponse = (await authenticateStudent(idToken, form)) || {};
-      console.log("Backend response:", data);
+      // Get profile image from localStorage (set during Google login)
+      const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : "";
+      const data: AuthResponse = (await authenticateStudent(idToken, { name: form.name, profileImage })) || {};
       if (data.registered) {
-        // Instead of alert, show a message on the page
+        if (typeof window !== "undefined") {
+          localStorage.setItem("studentName", form.name);
+          if (profileImage) localStorage.setItem("profileImage", profileImage);
+        }
         setSuccess(true);
-        // Optionally redirect after a delay
         setTimeout(() => router.replace("/feedback"), 2000);
       } else {
         setError(data.message || "Registration failed.");
@@ -71,11 +69,7 @@ function RegisterPageInner() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-md space-y-4">
           <h2 className="text-xl font-bold mb-4">Complete Registration</h2>
-          <input name="studentName" placeholder="Name" value={form.studentName} onChange={handleChange} required className="w-full border p-2 rounded" />
-          <input name="department" placeholder="Department" value={form.department} onChange={handleChange} required className="w-full border p-2 rounded" />
-          <input name="year" placeholder="Year" value={form.year} onChange={handleChange} required className="w-full border p-2 rounded" />
-          <input name="section" placeholder="Section" value={form.section} onChange={handleChange} required className="w-full border p-2 rounded" />
-          <input name="studentId" placeholder="Student ID" value={form.studentId} onChange={handleChange} required className="w-full border p-2 rounded" />
+          <input name="name" placeholder="Name" value={form.name} onChange={handleChange} required className="w-full border p-2 rounded" />
           {error && <div className="text-red-600 text-sm">{error}</div>}
           {success && <div className="text-green-600 text-sm">Registration successful! Redirecting...</div>}
           <button type="submit" disabled={loading || success} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">

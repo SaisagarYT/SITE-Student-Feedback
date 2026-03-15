@@ -54,25 +54,22 @@ exports.authenticateStudent = async (req, res) => {
     }
 
     if (!userDetails) {
-      // LOGIN: Check if a student exists with this email (as a field)
-      const studentsSnap = await db.collection("students").where("email", "==", email).limit(1).get();
-      if (!studentsSnap.empty) {
-        // User already registered, return user data
-        return res.status(200).json({ user: studentsSnap.docs[0].data(), registered: true });
+      // LOGIN: Check if a student exists with this email (as document ID)
+      const studentDoc = await db.collection("students").doc(email).get();
+      if (studentDoc.exists) {
+        return res.status(200).json({ user: studentDoc.data(), registered: true });
       } else {
-        // User not registered
         return res.status(200).json({ registered: false, message: "User not registered. Provide details to register." });
       }
     } else {
-      // REGISTRATION: Use studentId as the document ID
-      let studentId = userDetails.studentId;
-      if (!studentId) {
-        return res.status(400).json({ error: "Missing studentId in registration." });
-      }
-      studentId = studentId.trim();
-      // Attach email to userDetails for future lookups
-      await db.collection("students").doc(studentId).set({ ...userDetails, email });
-      return res.status(201).json({ user: { ...userDetails, email }, registered: true });
+      // REGISTRATION: Use Gmail as the document ID and store email, name, and password fields
+      const { name, profileImage } = userDetails;
+      await db.collection("students").doc(email).set({
+        email,
+        name: name || "",
+        profileImage: profileImage || ""
+      });
+      return res.status(201).json({ user: { email, name: name || "", profileImage: profileImage || "" }, registered: true });
     }
   } catch (error) {
     console.error("Student authentication error:", error);
