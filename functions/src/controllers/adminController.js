@@ -31,4 +31,48 @@ async function authenticateAdmin(req, res) {
   }
 }
 
-module.exports = { authenticateAdmin };
+/**
+ * Fetch all student feedbacks for admin dashboard.
+ * Returns an array of feedback documents, each with email and submitted phases.
+ */
+async function getAllStudentFeedbacks(req, res) {
+  try {
+    const feedbackSnap = await db.collection("feedback").get();
+    const feedbacks = [];
+    feedbackSnap.forEach(doc => {
+      const data = doc.data();
+      // Each doc: { email, phase1?, phase2? }
+      feedbacks.push({
+        email: data.email,
+        phase1: data.phase1 || null,
+        phase2: data.phase2 || null
+      });
+    });
+    res.status(200).json({ feedbacks });
+  } catch (error) {
+    console.error("Failed to fetch student feedbacks", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+/**
+ * Admin logout endpoint.
+ * Verifies idToken and returns success (stateless, for client cleanup).
+ */
+async function logoutAdmin(req, res) {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ error: "Missing idToken" });
+    }
+    // Optionally verify the token (stateless logout)
+    await getAuth().verifyIdToken(idToken);
+    // No server session to destroy; just acknowledge
+    return res.status(200).json({ success: true, message: "Admin logged out." });
+  } catch (error) {
+    console.error("Admin logout error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+module.exports = { authenticateAdmin, getAllStudentFeedbacks, logoutAdmin };

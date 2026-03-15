@@ -39,7 +39,7 @@ export default function AdminLogin() {
       if (user) {
         const idToken = await user.getIdToken();
         document.cookie = `token=${idToken}; path=/; max-age=3600;`;
-        const data: AdminApiResponse = await authenticateAdmin(idToken);
+        const data = await authenticateAdmin(idToken) as AdminApiResponse;
         console.log("Backend response from authenticateAdmin:", data);
         if (data && data.authenticated && data.admin && data.admin.email) {
           localStorage.setItem("adminEmail", data.admin.email);

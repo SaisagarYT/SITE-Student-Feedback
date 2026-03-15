@@ -1,9 +1,11 @@
 "use client";
+
 import Link from "next/link";
 import AdminSubmissionCard from "@/components/admin/AdminSubmissionCard";
+import AdminNavbar from "@/components/admin/AdminNavbar";
 
 import { useEffect, useState } from "react";
-import { getAdminDashboardStats } from "@/api";
+import { getAdminDashboardStats, getAllStudentFeedbacks } from "@/api";
 import { mockSubmissions } from "@/data/adminSubmissions";
 
 import AdminRootProtected from "./AdminRootProtected";
@@ -12,6 +14,11 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<{ totalSubmissions: number; phase1Count: number; phase2Count: number; averageRating: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchEmail, setSearchEmail] = useState("");
+  const [searchedEmail, setSearchedEmail] = useState<string | null>(null);
+  const [allFeedbacks, setAllFeedbacks] = useState<Array<{ email: string }>>([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState(true);
+  const [feedbacksError, setFeedbacksError] = useState("");
 
   useEffect(() => {
     getAdminDashboardStats()
@@ -34,10 +41,21 @@ export default function AdminDashboardPage() {
         setError("Failed to load dashboard stats.");
         setLoading(false);
       });
+    // Fetch all feedbacks for initial display
+    getAllStudentFeedbacks()
+      .then((feedbacks) => {
+        setAllFeedbacks(feedbacks);
+        setFeedbacksLoading(false);
+      })
+      .catch(() => {
+        setFeedbacksError("Failed to load feedback submissions.");
+        setFeedbacksLoading(false);
+      });
   }, []);
 
   return (
     <AdminRootProtected>
+      <AdminNavbar />
       <main className="relative min-h-screen overflow-x-clip bg-(--page) text-(--ink)">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-112 bg-[linear-gradient(180deg,rgba(10,152,146,0.16),rgba(10,152,146,0))]" />
@@ -57,15 +75,28 @@ export default function AdminDashboardPage() {
                 response patterns in one place.
               </p>
             </div>
-
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="rounded-full border border-(--line-strong) bg-white px-5 py-2.5 text-sm font-semibold text-(--brand-deep) transition hover:border-(--brand)"
+            <form
+              className="flex items-center gap-3"
+              onSubmit={e => {
+                e.preventDefault();
+                setSearchedEmail(searchEmail.trim());
+              }}
+            >
+              <input
+                type="email"
+                placeholder="Search by student email"
+                value={searchEmail}
+                onChange={e => setSearchEmail(e.target.value)}
+                className="rounded-full border border-(--line) px-4 py-2 text-sm focus:border-(--brand) focus:outline-none"
+                required
+              />
+              <button
+                type="submit"
+                className="rounded-full bg-(--brand) px-4 py-2 text-sm font-semibold text-white hover:bg-(--brand-deep) transition"
               >
-                Back to feedback form
-              </Link>
-            </div>
+                Search
+              </button>
+            </form>
           </div>
         </section>
         <section className="relative py-8 sm:py-10">
@@ -94,11 +125,32 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             )}
-            {/* Submissions list can remain mock for now */}
             <div className="mt-7 space-y-4">
-              {mockSubmissions.map((submission) => (
-                <AdminSubmissionCard key={submission.id} submission={submission} />
-              ))}
+              {feedbacksLoading ? (
+                <div className="text-center text-(--muted)">Loading submissions...</div>
+              ) : feedbacksError ? (
+                <div className="text-center text-red-500">{feedbacksError}</div>
+              ) : searchedEmail ? (
+                <>
+                  {allFeedbacks.filter(fb => fb.email === searchedEmail).length > 0 ? (
+                    allFeedbacks.filter(fb => fb.email === searchedEmail).map(fb => (
+                      <AdminSubmissionCard key={fb.email} submission={{ email: fb.email }} />
+                    ))
+                  ) : (
+                    <div className="text-center text-(--muted)">No feedback found for this email.</div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {allFeedbacks.length > 0 ? (
+                    allFeedbacks.map(fb => (
+                      <AdminSubmissionCard key={fb.email} submission={{ email: fb.email }} />
+                    ))
+                  ) : (
+                    <div className="text-center text-(--muted)">No feedback submissions found.</div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </section>
