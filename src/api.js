@@ -1,4 +1,25 @@
 /**
+ * Get admin dashboard stats (total submissions, phase counts, average rating)
+ * @returns {Promise<object>} Backend response
+ */
+export async function getAdminDashboardStats() {
+  const response = await fetch(`${BASE_URL}/api/admin/dashboard-stats`);
+  return response.json();
+}
+/**
+ * Authenticate admin with Google ID token.
+ * @param {string} idToken - Firebase ID token from Google sign-in
+ * @returns {Promise<object>} Backend response
+ */
+export async function authenticateAdmin(idToken) {
+  const response = await fetch(`${BASE_URL}/api/admin/authenticate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken }),
+  });
+  return response.json();
+}
+/**
  * Logout student by calling backend (if needed for session cleanup).
  * @param {string} idToken - Firebase ID token from Google sign-in
  * @returns {Promise<object>} Backend response

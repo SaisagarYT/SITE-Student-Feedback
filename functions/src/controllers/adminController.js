@@ -1,15 +1,11 @@
 const { getAuth } = require("firebase-admin/auth");
+const { db } = require("../config/firebase");
 
 /**
  * Admin authentication endpoint.
- * Verifies idToken, checks for admin claim or email in allowed list.
+ * Verifies idToken, checks if email exists in 'admins' collection.
  * Returns admin data if authenticated.
  */
-const ADMIN_EMAILS = [
-  // Add allowed admin emails here
-  "admin@example.com"
-];
-
 async function authenticateAdmin(req, res) {
   try {
     const { idToken } = req.body;
@@ -22,13 +18,11 @@ async function authenticateAdmin(req, res) {
     if (!email) {
       return res.status(400).json({ error: "Invalid token: no email" });
     }
-    // Option 1: Check for custom admin claim
-    if (decodedToken.admin === true) {
-      return res.status(200).json({ admin: { email }, authenticated: true });
-    }
-    // Option 2: Check if email is in allowed admin list
-    if (ADMIN_EMAILS.includes(email)) {
-      return res.status(200).json({ admin: { email }, authenticated: true });
+    // Check if email exists in 'admins' collection
+    const adminSnap = await db.collection("admins").where("email", "==", email).limit(1).get();
+    if (!adminSnap.empty) {
+      const adminData = adminSnap.docs[0].data();
+      return res.status(200).json({ admin: adminData, authenticated: true });
     }
     return res.status(403).json({ error: "Not an admin user" });
   } catch (error) {
