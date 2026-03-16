@@ -23,13 +23,7 @@ export async function getStudentFeedbackByEmail(email) {
   if (response.status === 404) return null;
   if (!response.ok) throw new Error('Failed to fetch feedback');
   const data = await response.json();
-  // DEBUG: Also log to window for visibility
-  if (typeof window !== 'undefined') {
-    window.__lastStudentFeedback = data;
-    window.console.log('[getStudentFeedbackByEmail] API response:', data);
-  } else {
-    console.log('[getStudentFeedbackByEmail] API response:', data);
-  }
+  // ...removed debug log...
   return data.feedback;
 }
 /**

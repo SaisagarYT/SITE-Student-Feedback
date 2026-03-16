@@ -2,7 +2,7 @@
   
   "use client";
   // Fetch feedback status from backend on mount
-  console.log('[FeedbackPage] HomePage component rendered');
+  // ...removed debug log...
 // Move these hooks inside the HomePage component
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -59,7 +59,7 @@ export default function HomePage() {
 
   // Fetch feedback status after authentication is checked and user is authed
   useEffect(() => {
-  console.log('[FeedbackPage] useEffect for feedback status running', { authChecked, isAuthed });
+  // ...removed debug log...
 
   if (!authChecked || !isAuthed) return;
 
@@ -68,7 +68,7 @@ export default function HomePage() {
   const unsubscribe = onAuthStateChanged(auth, async (user) => {
 
     if (!user || !user.email) {
-      console.log('[FeedbackPage] Firebase user not ready yet');
+      // ...removed debug log...
       return;
     }
 
@@ -90,7 +90,7 @@ export default function HomePage() {
       };
       const feedback: StudentFeedback | null = await getStudentFeedbackByEmail(email);
 
-      console.log('[FeedbackPage] getStudentFeedbackByEmail result:', feedback);
+      // ...removed debug log...
 
       setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
       setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));

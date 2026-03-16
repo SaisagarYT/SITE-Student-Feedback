@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "hackthon-65658"
-  }
+  },
+  "targets": {
+    "hackthon-65658": {
+      "hosting": {
+        "feedbackPortal": [
+          "sasi-feedback-portal"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
