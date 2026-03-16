@@ -1,24 +1,19 @@
-"use client";
+  // DEBUG: Confirm component is mounting
+  
+  "use client";
+  // Fetch feedback status from backend on mount
+  console.log('[FeedbackPage] HomePage component rendered');
+// Move these hooks inside the HomePage component
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { getAuth } from "firebase/auth";
-import { app as firebaseApp } from "@/firebase";
-// Backend feedback API endpoint (update to your deployed function URL if needed)
-const FEEDBACK_API_URL = "https://feedback-mlxcleit7q-as.a.run.app/";
-
-async function submitFeedbackToBackend(data: unknown) {
-  const response = await fetch(FEEDBACK_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  return response.json();
-}
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { submitStudentFeedback, getStudentFeedbackByEmail } from "@/api";
 import gsap from "gsap";
 import { Icon } from "@iconify/react";
 import FeedbackHeader from "@/components/feedback/FeedbackHeader";
 import PhaseSection from "@/components/feedback/PhaseSection";
 import { feedbackPhases } from "@/data/questions";
+
 
 type PhaseProgressState = {
   ratings: Record<string, number>;
@@ -26,51 +21,123 @@ type PhaseProgressState = {
 };
 
 export default function HomePage() {
-      const [authChecked, setAuthChecked] = useState(false);
-      const [isAuthed, setIsAuthed] = useState(false);
-
-      // Protect route: check for token cookie and localStorage user data
-      useEffect(() => {
-        function getCookie(name: string) {
-          const value = `; ${document.cookie}`;
-          const parts = value.split(`; ${name}=`);
-          if (parts.length === 2) return parts.pop()?.split(';').shift();
-          return null;
-        }
-        const token = getCookie("token");
-        const studentName = typeof window !== "undefined" ? localStorage.getItem("studentName") : null;
-        const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : null;
-        if (!token || !studentName || !profileImage) {
-          window.location.href = "/";
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setIsAuthed(false);
-        } else {
-          setIsAuthed(true);
-        }
-        setAuthChecked(true);
-      }, []);
-    // Protect route: check for token cookie and localStorage user data
-    useEffect(() => {
-      // Helper to get cookie value
-      function getCookie(name: string) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop()?.split(';').shift();
-        return null;
-      }
-      const token = getCookie("token");
-      const studentName = typeof window !== "undefined" ? localStorage.getItem("studentName") : null;
-      const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : null;
-      if (!token || !studentName || !profileImage) {
-        window.location.href = "/";
-      }
-    }, []);
-  const pageRef = useRef<HTMLDivElement>(null);
-  const phaseContainerRef = useRef<HTMLDivElement>(null);
+  // All state hooks at the top
+  const [phase1AlreadySubmitted, setPhase1AlreadySubmitted] = useState(false);
+  const [phase2AlreadySubmitted, setPhase2AlreadySubmitted] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
   const [phaseState, setPhaseState] = useState<Record<"phase1" | "phase2", PhaseProgressState>>({
     phase1: { ratings: {}, remark: "" },
     phase2: { ratings: {}, remark: "" },
   });
+  const pageRef = useRef<HTMLDivElement>(null);
+  const phaseContainerRef = useRef<HTMLDivElement>(null);
+
+  // Defensive: If backend says complete, always disable, even if local state is out of sync
+  const phase1Locked = phase1AlreadySubmitted;
+  const phase2Locked = phase2AlreadySubmitted;
+
+  // Protect route: check for token cookie and localStorage user data
+  useEffect(() => {
+    function getCookie(name: string) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(';').shift();
+      return null;
+    }
+    const token = getCookie("token");
+    const studentName = typeof window !== "undefined" ? localStorage.getItem("studentName") : null;
+    const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : null;
+    if (!token || !studentName || !profileImage) {
+      window.location.href = "/";
+      // Do not call setIsAuthed(false) after navigation
+    } else {
+      setTimeout(() => setIsAuthed(true), 0);
+    }
+    setTimeout(() => setAuthChecked(true), 0);
+  }, []);
+
+  // Fetch feedback status after authentication is checked and user is authed
+  useEffect(() => {
+  console.log('[FeedbackPage] useEffect for feedback status running', { authChecked, isAuthed });
+
+  if (!authChecked || !isAuthed) return;
+
+  const auth = getAuth();
+
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+
+    if (!user || !user.email) {
+      console.log('[FeedbackPage] Firebase user not ready yet');
+      return;
+    }
+
+    const email = user.email;
+
+    try {
+
+      type StudentFeedback = {
+        isPhase1Complete?: boolean;
+        isPhase2Complete?: boolean;
+        phase1?: {
+          ratings: Record<string, number>;
+          remark: string;
+        };
+        phase2?: {
+          ratings: Record<string, number>;
+          remark: string;
+        };
+      };
+      const feedback: StudentFeedback | null = await getStudentFeedbackByEmail(email);
+
+      console.log('[FeedbackPage] getStudentFeedbackByEmail result:', feedback);
+
+      setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
+      setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));
+
+      setPhaseState((prev) => ({
+        phase1: feedback && feedback.phase1
+          ? {
+              ratings: feedback.phase1.ratings || {},
+              remark: feedback.phase1.remark || "",
+            }
+          : prev.phase1,
+
+        phase2: feedback && feedback.phase2
+          ? {
+              ratings: feedback.phase2.ratings || {},
+              remark: feedback.phase2.remark || "",
+            }
+          : prev.phase2,
+      }));
+
+    } catch (error) {
+
+      console.error('[FeedbackPage] Failed to fetch feedback', error);
+
+    }
+
+  });
+
+  return () => unsubscribe();
+
+}, [authChecked, isAuthed]);
+
+  // (Optional) Redundant route protection, can be removed if above is sufficient
+  // useEffect(() => {
+  //   function getCookie(name: string) {
+  //     const value = `; ${document.cookie}`;
+  //     const parts = value.split(`; ${name}=`);
+  //     if (parts.length === 2) return parts.pop()?.split(';').shift();
+  //     return null;
+  //   }
+  //   const token = getCookie("token");
+  //   const studentName = typeof window !== "undefined" ? localStorage.getItem("studentName") : null;
+  //   const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : null;
+  //   if (!token || !studentName || !profileImage) {
+  //     window.location.href = "/";
+  //   }
+  // }, []);
   const [activePhase, setActivePhase] = useState<"phase1" | "phase2">("phase1");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -124,8 +191,7 @@ export default function HomePage() {
   const handleSubmit = async () => {
     if (!activePhaseComplete) return;
     setIsSubmitting(true);
-    // Get current user from Firebase Auth
-    const auth = getAuth(firebaseApp);
+    const auth = getAuth();
     const user = auth.currentUser;
     if (!user || !user.email) {
       setIsSubmitting(false);
@@ -139,17 +205,37 @@ export default function HomePage() {
       ratings: activePhaseState.ratings,
       remark: activePhaseState.remark,
     };
-    console.log("Submitting feedback payload:", feedbackPayload);
     try {
-      const result = await submitFeedbackToBackend(feedbackPayload);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any = await submitStudentFeedback(feedbackPayload);
       setIsSubmitting(false);
-      console.log("Backend feedback response:", result);
+      // Wait for backend to update Firestore
+      await new Promise((resolve) => setTimeout(resolve, 600)); // 600ms delay
+      // Refetch feedback status after submit and sync local state
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const feedback: any = await getStudentFeedbackByEmail(email);
+      setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
+      setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));
+      setPhaseState((prev) => ({
+        phase1: feedback && feedback.phase1
+          ? {
+              ratings: feedback.phase1.ratings || {},
+              remark: feedback.phase1.remark || "",
+            }
+          : prev.phase1,
+        phase2: feedback && feedback.phase2
+          ? {
+              ratings: feedback.phase2.ratings || {},
+              remark: feedback.phase2.remark || "",
+            }
+          : prev.phase2,
+      }));
       if (result && result.message) {
         window.alert(result.message);
       } else {
         window.alert("Feedback submitted.");
       }
-    } catch (err) {
+    } catch {
       setIsSubmitting(false);
       window.alert("Failed to submit feedback. Please try again.");
     }
@@ -180,6 +266,9 @@ export default function HomePage() {
   if (!isAuthed) {
     return null;
   }
+  // Add a notice for phase completion (move inside HomePage before return)
+  const showPhase1Notice = phase1AlreadySubmitted && activePhase === "phase1";
+  const showPhase2Notice = phase2AlreadySubmitted && activePhase === "phase2";
   return (
     <main className="relative min-h-screen overflow-x-clip bg-(--page) text-(--ink)">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -189,6 +278,16 @@ export default function HomePage() {
       </div>
       <div ref={pageRef} className="relative pb-14">
         <FeedbackHeader activePhase={activePhase} />
+        {showPhase1Notice && (
+          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-green-800 text-center text-sm font-medium shadow">
+            Phase 1 feedback has already been submitted. You cannot edit your responses.
+          </div>
+        )}
+        {showPhase2Notice && (
+          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-green-800 text-center text-sm font-medium shadow">
+            Phase 2 feedback has already been submitted. You cannot edit your responses.
+          </div>
+        )}
         <section className="bg-[linear-gradient(180deg,var(--brand)_0%,var(--brand-deep)_100%)] py-10 sm:py-14">
           <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:px-8">
             <aside data-reveal className="sticky top-4 self-start lg:top-5">
@@ -266,6 +365,10 @@ export default function HomePage() {
                       },
                     }));
                   }}
+                  disabled={
+                    (activePhase === "phase1" && phase1Locked) ||
+                    (activePhase === "phase2" && phase2Locked)
+                  }
                 />
               </div>
               <div data-reveal className="flex flex-col gap-3 rounded-[1.75rem] bg-white px-5 py-5 shadow-[0_18px_50px_rgba(9,58,70,0.16)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -273,7 +376,7 @@ export default function HomePage() {
                   <p className="text-xs font-semibold tracking-[0.22em] text-(--muted) uppercase">Navigation</p>
                   <p className="mt-2 text-sm text-(--muted)">
                     {activePhase === "phase1"
-                      ? "Complete all ratings and add one suggestion to unlock Phase 2."
+                      ? "Please answer all questions and provide a suggestion to proceed to Phase 2."
                       : "Review your ratings and submit once the phase is fully completed."}
                   </p>
                 </div>
@@ -281,9 +384,15 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={!activePhaseComplete || isSubmitting}
+                    disabled={
+                      !activePhaseComplete || isSubmitting ||
+                      (activePhase === "phase1" && phase1Locked) ||
+                      (activePhase === "phase2" && phase2Locked)
+                    }
                     className={
-                      !activePhaseComplete || isSubmitting
+                      !activePhaseComplete || isSubmitting ||
+                      (activePhase === "phase1" && phase1Locked) ||
+                      (activePhase === "phase2" && phase2Locked)
                         ? "cursor-not-allowed rounded-full bg-(--accent-soft) px-6 py-3 text-sm font-semibold text-white/70"
                         : "rounded-full bg-(--accent) px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_36px_rgba(239,42,113,0.32)] transition hover:bg-(--accent-deep)"
                     }
@@ -310,5 +419,4 @@ export default function HomePage() {
       </div>
     </main>
   );
-}  // ...existing feedback homepage code here (move all code from the previous return statement)
-  // ...existing code...)}
+}

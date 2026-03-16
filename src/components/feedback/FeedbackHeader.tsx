@@ -76,12 +76,7 @@ const FeedbackHeader = ({ activePhase }: FeedbackHeaderProps) => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/admin"
-              className="rounded-full border border-(--line-strong) bg-white px-3 py-2 text-xs font-semibold tracking-[0.08em] text-(--brand-deep) uppercase transition hover:border-(--brand) hover:text-(--brand) sm:text-sm"
-            >
-              Admin
-            </Link>
+
             <ProfileCard user={user} profileImage={profileImage} />
             <button
               onClick={async () => {

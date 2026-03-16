@@ -12,6 +12,7 @@ type PhaseSectionProps = {
   remark: string;
   onRatingChange: (questionId: string, value: number) => void;
   onRemarkChange: (value: string) => void;
+  disabled?: boolean;
 };
 
 const PhaseSection = ({
@@ -20,6 +21,7 @@ const PhaseSection = ({
   remark,
   onRatingChange,
   onRemarkChange,
+  disabled = false,
 }: PhaseSectionProps) => {
   const sectionRef = useRef<HTMLDivElement>(null);
   const textAreaWrapRef = useRef<HTMLDivElement>(null);
@@ -81,6 +83,7 @@ const PhaseSection = ({
             onRatingChange={(nextValue) => {
               onRatingChange(question.id, nextValue);
             }}
+            disabled={disabled}
           />
         ))}
       </div>
@@ -98,10 +101,11 @@ const PhaseSection = ({
           onChange={(event) => onRemarkChange(event.target.value)}
           className={clsx(
             "w-full resize-y rounded-[1.15rem] border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--ink)] outline-none transition duration-300",
-            "placeholder:text-[var(--muted)]/70 focus:border-[var(--brand)] focus:shadow-[0_0_0_3px_rgba(10,152,146,0.12)]"
+            "placeholder:text-[var(--muted)]/70 focus:border-[var(--brand)] focus:shadow-[0_0_0_3px_rgba(10,152,146,0.12)]",
+            disabled && "opacity-60 cursor-not-allowed bg-gray-100"
           )}
           onFocus={() => {
-            if (!textAreaWrapRef.current) return;
+            if (!textAreaWrapRef.current || disabled) return;
             gsap.to(textAreaWrapRef.current, {
               borderColor: "var(--brand)",
               boxShadow: "0 0 0 3px rgba(10,152,146,0.1)",
@@ -110,7 +114,7 @@ const PhaseSection = ({
             });
           }}
           onBlur={() => {
-            if (!textAreaWrapRef.current) return;
+            if (!textAreaWrapRef.current || disabled) return;
             gsap.to(textAreaWrapRef.current, {
               borderColor: "var(--line)",
               boxShadow: "none",
@@ -118,6 +122,7 @@ const PhaseSection = ({
               ease: "power2.out",
             });
           }}
+          disabled={disabled}
         />
       </div>
 

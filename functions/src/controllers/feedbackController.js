@@ -38,10 +38,20 @@ async function submitFeedback(req, res) {
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     };
-    // Set or update the document with the phase object and email at top level
+
+    // Prepare completion flags
+    let completionFields = {};
+    if (phase === "phase1") {
+      completionFields.isPhase1Complete = true;
+    } else if (phase === "phase2") {
+      completionFields.isPhase2Complete = true;
+    }
+
+    // Set or update the document with the phase object, email, and completion flags
     await feedbackDocRef.set({
       email: email.trim(),
       [phase]: phaseDoc,
+      ...completionFields,
     }, { merge: true });
 
     res.status(201).json({
@@ -56,4 +66,23 @@ async function submitFeedback(req, res) {
   }
 }
 
-module.exports = { submitFeedback };
+// GET /feedback?email=...
+async function getFeedbackByEmail(req, res) {
+  const email = (req.query.email || '').trim();
+  if (!email) {
+    return res.status(400).json({ message: 'Missing email parameter.' });
+  }
+  try {
+    const feedbackDocRef = db.collection(FEEDBACK_COLLECTION).doc(email);
+    const docSnap = await feedbackDocRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ message: 'Feedback not found.' });
+    }
+    return res.status(200).json({ feedback: docSnap.data() });
+  } catch (error) {
+    console.error('Failed to fetch feedback', error);
+    return res.status(500).json({ message: 'Failed to fetch feedback.' });
+  }
+}
+
+module.exports = { submitFeedback, getFeedbackByEmail };

@@ -9,6 +9,7 @@ import { Icon } from "@iconify/react";
 type SliderRatingProps = {
   id: string;
   onChange?: (value: number) => void;
+  disabled?: boolean;
 };
 
 const labelEntries = [
@@ -19,7 +20,8 @@ const labelEntries = [
   { value: 5, label: "Strongly Agree" },
 ] as const;
 
-const SliderRating = ({ id, onChange }: SliderRatingProps) => {
+
+const SliderRating = ({ id, onChange, disabled = false }: SliderRatingProps) => {
   const { value, setValue, activeLabel } = useSlider(null);
   const controlRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
@@ -47,6 +49,7 @@ const SliderRating = ({ id, onChange }: SliderRatingProps) => {
   }, [value]);
 
   const handleChange = (nextValue: number) => {
+    if (disabled) return;
     setValue(nextValue);
     onChange?.(nextValue);
   };
@@ -86,13 +89,18 @@ const SliderRating = ({ id, onChange }: SliderRatingProps) => {
                 onChange={() => handleChange(entry.value)}
                 className="sr-only"
                 aria-label={entry.label}
+                disabled={disabled}
               />
               <span className="font-medium">{entry.value}.</span>
               <span>{entry.label}</span>
             </div>
             <Icon
               icon={value === entry.value ? "material-symbols:check-circle-outline" : "material-symbols:radio-button-unchecked"}
-              className={clsx("text-base", value === entry.value ? "text-[var(--brand-deep)]" : "text-[var(--muted)]")}
+              className={clsx(
+                "text-base",
+                value === entry.value ? "text-[var(--brand-deep)]" : "text-[var(--muted)]",
+                disabled && "opacity-50"
+              )}
             />
           </label>
         ))}

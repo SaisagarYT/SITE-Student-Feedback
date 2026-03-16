@@ -1,3 +1,37 @@
+const BASE_URL = "https://feedback-mlxcleit7q-as.a.run.app";
+/**
+ * Submit feedback for a student (phase1 or phase2)
+ * @param {object} feedbackData - { email, phase, ratings, remark }
+ * @returns {Promise<object>} Backend response
+ */
+export async function submitStudentFeedback(feedbackData) {
+  const response = await fetch(`${BASE_URL}/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(feedbackData),
+  });
+  return response.json();
+}
+
+/**
+ * Fetch feedback for a student by email
+ * @param {string} email - Student's email
+ * @returns {Promise<object|null>} Feedback document or null if not found
+ */
+export async function getStudentFeedbackByEmail(email) {
+  const response = await fetch(`${BASE_URL}/feedback?email=${encodeURIComponent(email)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('Failed to fetch feedback');
+  const data = await response.json();
+  // DEBUG: Also log to window for visibility
+  if (typeof window !== 'undefined') {
+    window.__lastStudentFeedback = data;
+    window.console.log('[getStudentFeedbackByEmail] API response:', data);
+  } else {
+    console.log('[getStudentFeedbackByEmail] API response:', data);
+  }
+  return data.feedback;
+}
 /**
  * Fetch all student feedbacks for admin dashboard (phase1 and phase2 per student)
  * @returns {Promise<Array>} Array of feedbacks [{ email, phase1, phase2 }]
@@ -58,7 +92,6 @@ export async function logoutAdmin(idToken) {
 }
 // src/api.js
 
-const BASE_URL = "https://feedback-mlxcleit7q-as.a.run.app";
 
 /**
  * Authenticate student with Google ID token, and optionally register with details.
