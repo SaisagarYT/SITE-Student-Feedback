@@ -19,7 +19,7 @@ serviceAccountKey.json
 # next.js
 /.next/
 /out/
-
+////
 # production
 /build
 
