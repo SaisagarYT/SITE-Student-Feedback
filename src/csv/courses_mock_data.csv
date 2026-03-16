@@ -1,0 +1,6 @@
+courseId,courseName,branchId,semester,facultyId,credits
+IT601,Machine Learning,IT,6,FAC101,3
+IT602,Computer Networks,IT,6,FAC102,4
+IT603,Cloud Computing,IT,6,FAC103,3
+IT604,Software Engineering,IT,6,FAC104,3
+IT605,Data Mining,IT,6,FAC105,3

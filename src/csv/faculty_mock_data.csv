@@ -1,0 +1,6 @@
+facultyId,facultyName,branchId,subjectId,designation,email
+FAC101,Dr. Ramesh Kumar,IT,IT601,Professor,ramesh@sasi.ac.in
+FAC102,Dr. Anitha Devi,IT,IT602,Associate Professor,anitha@sasi.ac.in
+FAC103,Mr. Prakash Rao,IT,IT603,Assistant Professor,prakash@sasi.ac.in
+FAC104,Ms. Kavya Reddy,IT,IT604,Assistant Professor,kavya@sasi.ac.in
+FAC105,Dr. Srinivas Rao,IT,IT605,Professor,srinivas@sasi.ac.in

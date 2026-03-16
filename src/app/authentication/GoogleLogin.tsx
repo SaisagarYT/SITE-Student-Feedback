@@ -36,6 +36,7 @@ export default function GoogleLogin() {
       const user = result.user;
       if (user) {
         const idToken = await user.getIdToken();
+        console.log("JWT idToken:", idToken); // Logs the JWT token
         document.cookie = `token=${idToken}; path=/; max-age=3600;`;
         let data: AuthResponse = (await authenticateStudent(idToken)) || {};
         console.log("Backend response from authenticateStudent:", data);

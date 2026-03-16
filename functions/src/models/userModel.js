@@ -1,23 +1,24 @@
-const {FieldValue} = require("firebase-admin/firestore");
+const { FieldValue } = require("firebase-admin/firestore");
 
 const STUDENTS_COLLECTION = "students";
 
 /**
- * students/{email}
- * Stores student identity and profile details.
- * Document ID is the email so upsert with merge avoids duplicates.
+ * students/{studentId}
+ * Represents a student who submits feedback.
+ * Document ID is the studentId (e.g., 21ITR045)
  */
-function buildUserDoc(payload) {
+function buildStudentDoc(payload) {
   return {
-    email: payload.email.trim(),
+    studentId: payload.studentId.trim(),
     name: payload.name ? payload.name.trim() : "",
-    department: payload.department ? payload.department.trim() : "",
-    year: payload.year ? payload.year.trim() : "",
+    email: payload.email ? payload.email.trim() : "",
+    branchId: payload.branchId ? payload.branchId.trim() : "",
+    semester: payload.semester ? payload.semester : "",
     section: payload.section ? payload.section.trim() : "",
-    profileImage: payload.profileImage || "",
+    rollNumber: payload.rollNumber ? payload.rollNumber.trim() : "",
     createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
   };
 }
 
-module.exports = {STUDENTS_COLLECTION, buildUserDoc};
+module.exports = { STUDENTS_COLLECTION, buildStudentDoc };
+
