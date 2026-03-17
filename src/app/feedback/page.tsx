@@ -200,8 +200,8 @@ export default function HomePage() {
       const payload = {
         courseId: selectedCourse.courseId,
         facultyId: selectedCourse.facultyId,
-        phase1: phaseState.phase1.ratings,
-        phase2: phaseState.phase2.ratings,
+        phase1: remapPhaseKeys(phaseState.phase1.ratings),
+        phase2: remapPhaseKeys(phaseState.phase2.ratings),
         phase1Remark: phaseState.phase1.remark,
         phase2Remark: phaseState.phase2.remark,
       };
@@ -235,6 +235,17 @@ export default function HomePage() {
       window.alert("Failed to submit feedback. Please try again.");
     }
   };
+  // Helper to remap keys for backend
+  function remapPhaseKeys(phaseRatings) {
+    const mapped = {};
+    Object.entries(phaseRatings).forEach(([key, value]) => {
+      const match = key.match(/q(\d+)$/);
+      if (match) {
+        mapped[`q${match[1]}`] = value;
+      }
+    });
+    return mapped;
+  }
   useLayoutEffect(() => {
     if (!pageRef.current) return;
     const context = gsap.context(() => {
