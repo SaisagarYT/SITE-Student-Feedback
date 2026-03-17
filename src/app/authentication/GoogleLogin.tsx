@@ -7,10 +7,11 @@ import { useRouter } from "next/navigation";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from "firebase/auth";
 
 import { app } from "@/firebase";
-import { authenticateStudent } from "@/api";
+import { loginStudent } from "@/api";
 type AuthResponse = {
-  registered?: boolean;
-  student?: { name?: string };
+  error?: string;
+  loggedIn?: boolean;
+  user?: { name?: string };
   message?: string;
 };
 
@@ -38,13 +39,11 @@ export default function GoogleLogin() {
         const idToken = await user.getIdToken();
         console.log("JWT idToken:", idToken); // Logs the JWT token
         document.cookie = `token=${idToken}; path=/; max-age=3600;`;
-        let data: AuthResponse = (await authenticateStudent(idToken)) || {};
-        console.log("Backend response from authenticateStudent:", data);
-        if (!data.registered) {
-          data = (await authenticateStudent(idToken, {
-            name: user.displayName || "",
-            profileImage: user.photoURL || ""
-          })) || {};
+        const data: AuthResponse = (await loginStudent(idToken)) || {};
+        console.log("Backend response from loginStudent:", data);
+        if (data.error && data.error.includes("sasi.ac.in")) {
+          alert("Only SASI College emails are allowed. Please use your sasi.ac.in email.");
+          return;
         }
         if (user.photoURL) {
           localStorage.setItem("profileImage", user.photoURL);

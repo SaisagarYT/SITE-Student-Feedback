@@ -18,8 +18,6 @@ router.get("/course/:courseId/faculty", getCourseFaculty);
 
 router.get("/courses", getStudentCourses);
 
-// POST /api/student/authenticate
-router.post("/authenticate", authenticateStudent);
 
 // POST /api/student/login
 router.post("/login", loginStudent);

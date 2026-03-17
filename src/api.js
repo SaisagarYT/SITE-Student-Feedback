@@ -84,20 +84,17 @@ export async function logoutAdmin(idToken) {
   });
   return response.json();
 }
-// src/api.js
-
 
 /**
- * Authenticate student with Google ID token, and optionally register with details.
+ * Login student with Google ID token.
  * @param {string} idToken - Firebase ID token from Google sign-in
- * @param {object} [studentDetails] - Optional student details for registration
  * @returns {Promise<object>} Backend response
  */
-export async function authenticateStudent(idToken, studentDetails) {
-  const response = await fetch(`${BASE_URL}/api/student/authenticate`, {
+export async function loginStudent(idToken) {
+  const response = await fetch(`${BASE_URL}/api/student/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(studentDetails ? { idToken, userDetails: studentDetails } : { idToken }),
+    body: JSON.stringify({ idToken }),
   });
   return response.json();
 }
