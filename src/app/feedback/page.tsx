@@ -1,13 +1,13 @@
-  // DEBUG: Confirm component is mounting
+// DEBUG: Confirm component is mounting
   
   "use client";
   // Fetch feedback status from backend on mount
   // ...removed debug log...
 // Move these hooks inside the HomePage component
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { submitStudentFeedback, getStudentFeedbackByEmail } from "@/api";
+import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getCourseFaculty } from "@/api";
 import gsap from "gsap";
 import { Icon } from "@iconify/react";
 import FeedbackHeader from "@/components/feedback/FeedbackHeader";
@@ -22,6 +22,12 @@ type PhaseProgressState = {
 
 export default function HomePage() {
   // All state hooks at the top
+  const [faculty, setFaculty] = useState<{
+    email?: string; facultyId: string; facultyName: string; subjectId: string; designation: string 
+  } | null>(null);
+  const [facultyLoading, setFacultyLoading] = useState(false);
+  const [courses, setCourses] = useState<Array<{ courseId: string; courseName: string; facultyId: string }>>([]);
+  const [selectedCourse, setSelectedCourse] = useState<{ courseId: string; courseName: string; facultyId: string } | null>(null);
   const [phase1AlreadySubmitted, setPhase1AlreadySubmitted] = useState(false);
   const [phase2AlreadySubmitted, setPhase2AlreadySubmitted] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -59,85 +65,81 @@ export default function HomePage() {
 
   // Fetch feedback status after authentication is checked and user is authed
   useEffect(() => {
-  // ...removed debug log...
-
-  if (!authChecked || !isAuthed) return;
-
-  const auth = getAuth();
-
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-
-    if (!user || !user.email) {
-      // ...removed debug log...
-      return;
+    async function fetchCourses() {
+      try {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; token=`);
+        const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
+        if (!token) return;
+        const auth = getAuth();
+        const user = auth.currentUser;
+        let idToken = token;
+        if (user) {
+          idToken = await user.getIdToken();
+        }
+        const courseList = await getStudentCourses(idToken);
+        setCourses(courseList);
+        setSelectedCourse(courseList.length > 0 ? courseList[0] : null);
+      } catch {
+        setCourses([]);
+        setSelectedCourse(null);
+      }
     }
-
-    const email = user.email;
-
-    try {
-
-      type StudentFeedback = {
-        isPhase1Complete?: boolean;
-        isPhase2Complete?: boolean;
-        phase1?: {
-          ratings: Record<string, number>;
-          remark: string;
-        };
-        phase2?: {
-          ratings: Record<string, number>;
-          remark: string;
-        };
-      };
-      const feedback: StudentFeedback | null = await getStudentFeedbackByEmail(email);
-
-      // ...removed debug log...
-
-      setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
-      setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));
-
-      setPhaseState((prev) => ({
-        phase1: feedback && feedback.phase1
-          ? {
-              ratings: feedback.phase1.ratings || {},
-              remark: feedback.phase1.remark || "",
-            }
-          : prev.phase1,
-
-        phase2: feedback && feedback.phase2
-          ? {
-              ratings: feedback.phase2.ratings || {},
-              remark: feedback.phase2.remark || "",
-            }
-          : prev.phase2,
-      }));
-
-    } catch (error) {
-
-      console.error('[FeedbackPage] Failed to fetch feedback', error);
-
+    if (authChecked && isAuthed) {
+      fetchCourses();
     }
+  }, [authChecked, isAuthed]);
 
-  });
+  // Update feedback fetching to depend on selectedCourseId
+  // Fetch feedback and faculty info when course changes
+  useEffect(() => {
+    if (!authChecked || !isAuthed || !selectedCourse) return;
+    // Fetch faculty info
+    Promise.resolve().then(() => setFacultyLoading(true));
+    getCourseFaculty(selectedCourse.courseId)
+      .then((data) => setFaculty(data as { email?: string; facultyId: string; facultyName: string; subjectId: string; designation: string }))
+      .catch(() => {
+        setFaculty(null);
+      })
+      .finally(() => setFacultyLoading(false));
+    // Fetch feedback
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user || !user.email) return;
+      try {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; token=`);
+        const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
+        type StudentFeedback = {
+          isPhase1Complete?: boolean;
+          isPhase2Complete?: boolean;
+          phase1?: { ratings: Record<string, number>; remark: string };
+          phase2?: { ratings: Record<string, number>; remark: string };
+        };
+        const feedback: StudentFeedback | null = await getStudentFeedbackByCourse(selectedCourse.courseId, token);
+        setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
+        setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));
+        setPhaseState({
+          phase1: feedback && feedback.phase1
+            ? { ratings: feedback.phase1.ratings || {}, remark: feedback.phase1.remark || "" }
+            : { ratings: {}, remark: "" },
+          phase2: feedback && feedback.phase2
+            ? { ratings: feedback.phase2.ratings || {}, remark: feedback.phase2.remark || "" }
+            : { ratings: {}, remark: "" },
+        });
+      } catch {
+        setPhase1AlreadySubmitted(false);
+        setPhase2AlreadySubmitted(false);
+        setPhaseState({
+          phase1: { ratings: {}, remark: "" },
+          phase2: { ratings: {}, remark: "" },
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [authChecked, isAuthed, selectedCourse]);
 
-  return () => unsubscribe();
 
-}, [authChecked, isAuthed]);
-
-  // (Optional) Redundant route protection, can be removed if above is sufficient
-  // useEffect(() => {
-  //   function getCookie(name: string) {
-  //     const value = `; ${document.cookie}`;
-  //     const parts = value.split(`; ${name}=`);
-  //     if (parts.length === 2) return parts.pop()?.split(';').shift();
-  //     return null;
-  //   }
-  //   const token = getCookie("token");
-  //   const studentName = typeof window !== "undefined" ? localStorage.getItem("studentName") : null;
-  //   const profileImage = typeof window !== "undefined" ? localStorage.getItem("profileImage") : null;
-  //   if (!token || !studentName || !profileImage) {
-  //     window.location.href = "/";
-  //   }
-  // }, []);
   const [activePhase, setActivePhase] = useState<"phase1" | "phase2">("phase1");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -152,18 +154,12 @@ export default function HomePage() {
   const phase2Complete =
     Object.keys(phaseState.phase2.ratings).length === phase2QuestionCount &&
     phaseState.phase2.remark.trim().length > 0;
+  const allPhasesComplete = phase1Complete && phase2Complete;
   const activePhaseConfig = activePhase === "phase1" ? phase1 : phase2;
   const activePhaseState = phaseState[activePhase];
-  const activePhaseComplete = activePhase === "phase1" ? phase1Complete : phase2Complete;
-  const activeQuestionCount = activePhaseConfig.questions.length;
-  const activePhaseTotalTasks = activeQuestionCount + 1;
-  const activePhaseCompletedTasks =
-    Object.keys(activePhaseState.ratings).length +
-    (activePhaseState.remark.trim() ? 1 : 0);
-  const progressPercent = useMemo(
-    () => Math.round((activePhaseCompletedTasks / activePhaseTotalTasks) * 100),
-    [activePhaseCompletedTasks, activePhaseTotalTasks]
-  );
+  // Removed unused activeQuestionCount
+  // Removed unused activePhaseTotalTasks and activePhaseCompletedTasks
+  // Remove unused progressPercent if not used in JSX
   const switchPhase = (nextPhase: "phase1" | "phase2") => {
     if (!phaseContainerRef.current || nextPhase === activePhase) {
       setActivePhase(nextPhase);
@@ -189,31 +185,34 @@ export default function HomePage() {
     });
   };
   const handleSubmit = async () => {
-    if (!activePhaseComplete) return;
+    if (!allPhasesComplete || !selectedCourse) return;
     setIsSubmitting(true);
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user || !user.email) {
+    if (!user) {
       setIsSubmitting(false);
       window.alert("You must be signed in to submit feedback.");
       return;
     }
-    const email = user.email;
-    const feedbackPayload = {
-      email,
-      phase: activePhase,
-      ratings: activePhaseState.ratings,
-      remark: activePhaseState.remark,
-    };
+    const idToken = await user.getIdToken();
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result: any = await submitStudentFeedback(feedbackPayload);
+      // Build correct payload for backend
+      const payload = {
+        courseId: selectedCourse.courseId,
+        facultyId: selectedCourse.facultyId,
+        phase1: phaseState.phase1.ratings,
+        phase2: phaseState.phase2.ratings,
+        phase1Remark: phaseState.phase1.remark,
+        phase2Remark: phaseState.phase2.remark,
+      };
+      // Debug: Log payload and idToken before sending
+      console.log('Submitting feedback payload:', payload);
+      console.log('idToken:', idToken);
+      const result = await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
-      // Wait for backend to update Firestore
-      await new Promise((resolve) => setTimeout(resolve, 600)); // 600ms delay
+      await new Promise((resolve) => setTimeout(resolve, 600));
       // Refetch feedback status after submit and sync local state
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const feedback: any = await getStudentFeedbackByEmail(email);
+      const feedback: any = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken);
       setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
       setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));
       setPhaseState((prev) => ({
@@ -230,11 +229,7 @@ export default function HomePage() {
             }
           : prev.phase2,
       }));
-      if (result && result.message) {
-        window.alert(result.message);
-      } else {
-        window.alert("Feedback submitted.");
-      }
+      window.alert("Feedback for both phases submitted.");
     } catch {
       setIsSubmitting(false);
       window.alert("Failed to submit feedback. Please try again.");
@@ -293,24 +288,48 @@ export default function HomePage() {
             <aside data-reveal className="sticky top-4 self-start lg:top-5">
               <div className="overflow-hidden rounded-4xl border border-white/22 bg-white/12 shadow-[0_22px_65px_rgba(8,80,77,0.32)] backdrop-blur-md">
                 <div className="border-b border-white/14 px-5 py-5 text-white sm:px-6">
-                  <p className="text-xs font-semibold tracking-[0.24em] uppercase text-white/72">Progress monitor</p>
-                  <div className="mt-4 flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-4xl font-semibold tracking-tight">{progressPercent}%</p>
-                      <p className="mt-1 text-sm text-white/72">Responses completed in selected phase</p>
-                    </div>
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/16">
-                      <Icon icon="material-symbols:query-stats" className="text-2xl text-white" />
+                  <label htmlFor="course-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
+                    Select course
+                  </label>
+                  <div className="relative mb-4">
+                    <select
+                      id="course-select"
+                      value={selectedCourse?.courseId || ""}
+                      onChange={e => {
+                        const course = courses.find(c => c.courseId === e.target.value) || null;
+                        setSelectedCourse(course);
+                      }}
+                      className="w-full appearance-none rounded-2xl border border-white/20 bg-white/14 px-4 py-3 pr-11 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] outline-none transition focus:border-white/50 focus:bg-white/18 focus:ring-2 focus:ring-white/18"
+                    >
+                      <option value="">Select course</option>
+                      {courses.map(course => (
+                        <option key={course.courseId} value={course.courseId} className="text-(--ink)">
+                          {course.courseName}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-white/78">
+                      <Icon icon="material-symbols:keyboard-arrow-down-rounded" className="text-2xl" />
                     </span>
                   </div>
-                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/18">
-                    <span
-                      className="block h-full rounded-full bg-(--highlight) transition-all duration-500"
-                      style={{ width: `${progressPercent}%` }}
-                    />
+                  {/* Faculty info display */}
+                  <div className="mb-2">
+                    {facultyLoading && <span className="text-base text-white/80">Loading faculty...</span>}
+                    {!facultyLoading && faculty && (
+                      <div className="block text-base text-white/90 leading-snug">
+                        <div>
+                          Faculty: <span className="font-bold text-lg">{faculty.facultyName}</span>
+                          {faculty.designation && <span className="ml-2 text-sm text-white/70">({faculty.designation})</span>}
+                        </div>
+                        {faculty.email && (
+                          <div className="text-sm text-white/80 mt-1">Email: <span className="font-medium">{faculty.email}</span></div>
+                        )}
+                      </div>
+                    )}
+                    {!facultyLoading && !faculty && (
+                      <span className="block text-base text-white/80">No faculty assigned.</span>
+                    )}
                   </div>
-                </div>
-                <div className="space-y-3 px-5 py-5 sm:px-6">
                   <label htmlFor="phase-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72">
                     Select phase
                   </label>
@@ -329,14 +348,16 @@ export default function HomePage() {
                     </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 border-t border-white/14 bg-[rgba(6,92,89,0.28)]">
-                  <div className="px-5 py-4 text-white sm:px-6">
-                    <p className="text-3xl font-semibold">{Object.keys(activePhaseState.ratings).length}</p>
-                    <p className="text-xs uppercase tracking-[0.16em] text-white/72">Rated now</p>
-                  </div>
-                  <div className="border-l border-white/12 px-5 py-4 text-white sm:px-6">
-                    <p className="text-3xl font-semibold">{activePhaseState.remark.trim() ? 1 : 0}</p>
-                    <p className="text-xs uppercase tracking-[0.16em] text-white/72">Remarks added</p>
+                <div className="space-y-3 px-5 py-5 sm:px-6">
+                  <div className="grid grid-cols-2 border-t border-white/14 bg-[rgba(6,92,89,0.28)]">
+                    <div className="px-5 py-4 text-white sm:px-6">
+                      <p className="text-3xl font-semibold">{Object.keys(activePhaseState.ratings).length}</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-white/72">Rated now</p>
+                    </div>
+                    <div className="border-l border-white/12 px-5 py-4 text-white sm:px-6">
+                      <p className="text-3xl font-semibold">{activePhaseState.remark.trim() ? 1 : 0}</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-white/72">Remarks added</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -375,9 +396,7 @@ export default function HomePage() {
                 <div>
                   <p className="text-xs font-semibold tracking-[0.22em] text-(--muted) uppercase">Navigation</p>
                   <p className="mt-2 text-sm text-(--muted)">
-                    {activePhase === "phase1"
-                      ? "Please answer all questions and provide a suggestion to proceed to Phase 2."
-                      : "Review your ratings and submit once the phase is fully completed."}
+                    Please answer all questions in both phases and provide remarks. Submit once both phases are complete.
                   </p>
                 </div>
                 <div className="flex items-center justify-end gap-3">
@@ -385,19 +404,15 @@ export default function HomePage() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={
-                      !activePhaseComplete || isSubmitting ||
-                      (activePhase === "phase1" && phase1Locked) ||
-                      (activePhase === "phase2" && phase2Locked)
+                      !allPhasesComplete || isSubmitting || phase1Locked || phase2Locked
                     }
                     className={
-                      !activePhaseComplete || isSubmitting ||
-                      (activePhase === "phase1" && phase1Locked) ||
-                      (activePhase === "phase2" && phase2Locked)
+                      !allPhasesComplete || isSubmitting || phase1Locked || phase2Locked
                         ? "cursor-not-allowed rounded-full bg-(--accent-soft) px-6 py-3 text-sm font-semibold text-white/70"
                         : "rounded-full bg-(--accent) px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_36px_rgba(239,42,113,0.32)] transition hover:bg-(--accent-deep)"
                     }
                   >
-                    {isSubmitting ? "Submitting..." : "Submit"}
+                    {isSubmitting ? "Submitting..." : "Submit All Feedback"}
                   </button>
                 </div>
               </div>
@@ -420,3 +435,4 @@ export default function HomePage() {
     </main>
   );
 }
+

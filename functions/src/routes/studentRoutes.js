@@ -22,4 +22,4 @@ router.get("/courses", getStudentCourses);
 // POST /api/student/login
 router.post("/login", loginStudent);
 
-module.exports = { studentRouter: router, getStudentCourses, getCourseFaculty, checkFeedbackStatus, submitFeedback};
+module.exports = router;

@@ -43,16 +43,26 @@ exports.submitFeedback = async (req, res) => {
       return res.status(400).json({ error: "Invalid answers format" });
     }
 
-    // Store in Firestore
-    await db.collection("feedback").doc(feedbackId).set({
+    // Attach remarks to each phase if provided
+    const { phase1Remark, phase2Remark } = req.body;
+    const phase1WithRemark = { ...phase1 };
+    const phase2WithRemark = { ...phase2 };
+    if (typeof phase1Remark === "string") phase1WithRemark.remark = phase1Remark;
+    if (typeof phase2Remark === "string") phase2WithRemark.remark = phase2Remark;
+
+    // Also store remarks as top-level fields for direct access (optional, for compatibility with frontend payload)
+    const feedbackData = {
       feedbackId,
       studentId,
       courseId,
       facultyId,
-      phase1,
-      phase2,
+      phase1: phase1WithRemark,
+      phase2: phase2WithRemark,
+      phase1Remark: typeof phase1Remark === "string" ? phase1Remark : undefined,
+      phase2Remark: typeof phase2Remark === "string" ? phase2Remark : undefined,
       submittedAt: new Date().toISOString()
-    });
+    };
+    await db.collection("feedback").doc(feedbackId).set(feedbackData);
     return res.status(201).json({ submitted: true });
   } catch (error) {
     console.error("Submit feedback error:", error);

@@ -6,4 +6,4 @@ const router = express.Router();
 // GET /api/faculty
 router.get("/", getAllFaculty);
 
-module.exports = { facultyRouter: router };
+module.exports = router;

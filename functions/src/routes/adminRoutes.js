@@ -16,4 +16,4 @@ adminRouter.get("/dashboard-stats", getDashboardStats);
 // GET /api/admin/feedbacks
 adminRouter.get("/feedbacks", getAllStudentFeedbacks);
 
-module.exports = { adminRouter };
+module.exports = adminRouter;

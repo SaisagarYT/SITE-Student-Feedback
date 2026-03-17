@@ -4,27 +4,36 @@ const BASE_URL = "https://feedback-mlxcleit7q-as.a.run.app";
  * @param {object} feedbackData - { email, phase, ratings, remark }
  * @returns {Promise<object>} Backend response
  */
-export async function submitStudentFeedback(feedbackData) {
-  const response = await fetch(`${BASE_URL}/`, {
+export async function submitStudentFeedback(payload, idToken) {
+  const response = await fetch(`${BASE_URL}/api/student/submit-feedback`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(feedbackData),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idToken}`
+    },
+    body: JSON.stringify(payload)
   });
   return response.json();
 }
 
 /**
- * Fetch feedback for a student by email
- * @param {string} email - Student's email
- * @returns {Promise<object|null>} Feedback document or null if not found
+ * Fetch feedback status for a student by courseId (and optionally idToken or studentId)
+ * @param {string} courseId - Course ID to check feedback status for
+ * @param {string} [idToken] - Optional Firebase ID token for authentication
+ * @param {string} [studentId] - Optional studentId if available
+ * @returns {Promise<object|null>} Feedback status or null if not found
  */
-export async function getStudentFeedbackByEmail(email) {
-  const response = await fetch(`${BASE_URL}/feedback?email=${encodeURIComponent(email)}`);
+export async function getStudentFeedbackByCourse(courseId, idToken, studentId) {
+  let url = `${BASE_URL}/api/student/feedback-status/${encodeURIComponent(courseId)}`;
+  if (studentId) {
+    url += `?studentId=${encodeURIComponent(studentId)}`;
+  }
+  const headers = { "Content-Type": "application/json" };
+  if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+  const response = await fetch(url, { headers });
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error('Failed to fetch feedback');
-  const data = await response.json();
-  // ...removed debug log...
-  return data.feedback;
+  if (!response.ok) throw new Error('Failed to fetch feedback status');
+  return await response.json();
 }
 /**
  * Fetch all student feedbacks for admin dashboard (phase1 and phase2 per student)
@@ -97,4 +106,34 @@ export async function loginStudent(idToken) {
     body: JSON.stringify({ idToken }),
   });
   return response.json();
+}
+
+/**
+ * Fetch courses for the authenticated student
+ * @param {string} idToken - Firebase ID token from Google sign-in
+ * @returns {Promise<Array>} Array of courses [{ courseId, courseName, facultyId }]
+ */
+export async function getStudentCourses(idToken) {
+  const response = await fetch(`${BASE_URL}/api/student/courses`, {
+    headers: {
+      "Authorization": `Bearer ${idToken}`
+    }
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch courses");
+  }
+  return response.json();
+}
+
+/**
+ * Fetch faculty info for a course
+ * @param {string} courseId - Course ID
+ * @returns {Promise<object>} Faculty info { facultyId, facultyName, subjectId, designation }
+ */
+export async function getCourseFaculty(courseId) {
+  const res = await fetch(`${BASE_URL}/api/student/course/${courseId}/faculty`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch faculty");
+  }
+  return res.json();
 }
