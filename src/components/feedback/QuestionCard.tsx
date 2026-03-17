@@ -11,6 +11,7 @@ type QuestionCardProps = {
   questionText: string;
   questionId: string;
   reverseScored?: boolean;
+  value?: number;
   onRatingChange?: (value: number) => void;
   disabled?: boolean;
 };
@@ -20,6 +21,7 @@ const QuestionCard = ({
   questionText,
   questionId,
   reverseScored,
+  value,
   onRatingChange,
   disabled = false,
 }: QuestionCardProps) => {
@@ -85,7 +87,7 @@ const QuestionCard = ({
         </span>
       </div>
 
-      <SliderRating id={questionId} onChange={onRatingChange} disabled={disabled} />
+      <SliderRating id={questionId} value={value} onChange={onRatingChange} disabled={disabled} />
     </article>
   );
 };

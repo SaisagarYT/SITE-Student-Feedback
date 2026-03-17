@@ -105,11 +105,18 @@ exports.checkFeedbackStatus = async (req, res) => {
 
     const feedbackId = `${resolvedStudentId}_${courseId}`;
     const feedbackDoc = await db.collection("feedback").doc(feedbackId).get();
-    if (feedbackDoc.exists) {
-      return res.json({ submitted: true });
-    } else {
+    if (!feedbackDoc.exists) {
       return res.json({ submitted: false });
     }
+    const feedback = feedbackDoc.data();
+    // Return phase data and remarks for frontend population
+    return res.json({
+      submitted: true,
+      phase1: feedback.phase1 || null,
+      phase2: feedback.phase2 || null,
+      phase1Remark: feedback.phase1Remark || (feedback.phase1 && feedback.phase1.remark) || "",
+      phase2Remark: feedback.phase2Remark || (feedback.phase2 && feedback.phase2.remark) || "",
+    });
   } catch (error) {
     console.error("Check feedback status error:", error);
     return res.status(500).json({ error: error.message });

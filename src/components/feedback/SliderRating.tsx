@@ -8,6 +8,7 @@ import { Icon } from "@iconify/react";
 
 type SliderRatingProps = {
   id: string;
+  value?: number;
   onChange?: (value: number) => void;
   disabled?: boolean;
 };
@@ -21,14 +22,14 @@ const labelEntries = [
 ] as const;
 
 
-const SliderRating = ({ id, onChange, disabled = false }: SliderRatingProps) => {
-  const { value, setValue, activeLabel } = useSlider(null);
+const SliderRating = ({ id, value: propValue, onChange, disabled = false }: SliderRatingProps) => {
+  const { value, setValue, activeLabel } = useSlider(propValue ?? null);
   const controlRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setValue(null);
-  }, [setValue]);
+    setValue(propValue ?? null);
+  }, [setValue, propValue]);
 
   useLayoutEffect(() => {
     if (!controlRef.current) return;
@@ -84,7 +85,8 @@ const SliderRating = ({ id, onChange, disabled = false }: SliderRatingProps) => 
             <div className="flex items-center gap-2">
               <input
                 id={`${id}_${entry.value}`}
-                type="checkbox"
+                type="radio"
+                name={id}
                 checked={value === entry.value}
                 onChange={() => handleChange(entry.value)}
                 className="sr-only"

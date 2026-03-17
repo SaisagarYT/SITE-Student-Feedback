@@ -80,6 +80,7 @@ const PhaseSection = ({
             questionNumber={index + 1}
             questionText={question.text}
             reverseScored={question.reverseScored}
+            value={ratings[question.id]}
             onRatingChange={(nextValue) => {
               onRatingChange(question.id, nextValue);
             }}

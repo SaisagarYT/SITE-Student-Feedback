@@ -110,23 +110,45 @@ export default function HomePage() {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; token=`);
         const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
-        type StudentFeedback = {
-          isPhase1Complete?: boolean;
-          isPhase2Complete?: boolean;
-          phase1?: { ratings: Record<string, number>; remark: string };
-          phase2?: { ratings: Record<string, number>; remark: string };
+        // Define the expected feedback type
+        type FeedbackStatusResponse = {
+          submitted: boolean;
+          phase1?: { ratings?: Record<string, number>; remark?: string } | null;
+          phase2?: { ratings?: Record<string, number>; remark?: string } | null;
+          phase1Remark?: string;
+          phase2Remark?: string;
         };
-        const feedback: StudentFeedback | null = await getStudentFeedbackByCourse(selectedCourse.courseId, token);
-        setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
-        setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));
-        setPhaseState({
-          phase1: feedback && feedback.phase1
-            ? { ratings: feedback.phase1.ratings || {}, remark: feedback.phase1.remark || "" }
-            : { ratings: {}, remark: "" },
-          phase2: feedback && feedback.phase2
-            ? { ratings: feedback.phase2.ratings || {}, remark: feedback.phase2.remark || "" }
-            : { ratings: {}, remark: "" },
-        });
+        const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, token) as FeedbackStatusResponse;
+        if (feedback && feedback.submitted) {
+          // Extract only q1, q2, ... keys for ratings
+          const extractRatings = (phaseObj: unknown) => {
+            if (!phaseObj) return {};
+            const ratings: Record<string, number> = {};
+            Object.entries(phaseObj).forEach(([k, v]) => {
+              if (/^q\d+$/.test(k) && typeof v === 'number') ratings[k] = v;
+            });
+            return ratings;
+          };
+          setPhaseState({
+            phase1: {
+              ratings: extractRatings(feedback.phase1),
+              remark: feedback.phase1Remark || (feedback.phase1 && feedback.phase1.remark) || "",
+            },
+            phase2: {
+              ratings: extractRatings(feedback.phase2),
+              remark: feedback.phase2Remark || (feedback.phase2 && feedback.phase2.remark) || "",
+            },
+          });
+          setPhase1AlreadySubmitted(!!feedback.phase1);
+          setPhase2AlreadySubmitted(!!feedback.phase2);
+        } else {
+          setPhase1AlreadySubmitted(false);
+          setPhase2AlreadySubmitted(false);
+          setPhaseState({
+            phase1: { ratings: {}, remark: "" },
+            phase2: { ratings: {}, remark: "" },
+          });
+        }
       } catch {
         setPhase1AlreadySubmitted(false);
         setPhase2AlreadySubmitted(false);
@@ -208,24 +230,31 @@ export default function HomePage() {
       // Debug: Log payload and idToken before sending
       console.log('Submitting feedback payload:', payload);
       console.log('idToken:', idToken);
-      const result = await submitStudentFeedback(payload, idToken);
+      await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
       // Refetch feedback status after submit and sync local state
-      const feedback: any = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken);
-      setPhase1AlreadySubmitted(!!(feedback && feedback.isPhase1Complete));
-      setPhase2AlreadySubmitted(!!(feedback && feedback.isPhase2Complete));
+      type FeedbackStatusResponse = {
+        submitted: boolean;
+        phase1?: { ratings?: Record<string, number>; remark?: string } | null;
+        phase2?: { ratings?: Record<string, number>; remark?: string } | null;
+        phase1Remark?: string;
+        phase2Remark?: string;
+      };
+      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken) as FeedbackStatusResponse;
+      setPhase1AlreadySubmitted(!!feedback.phase1);
+      setPhase2AlreadySubmitted(!!feedback.phase2);
       setPhaseState((prev) => ({
         phase1: feedback && feedback.phase1
           ? {
               ratings: feedback.phase1.ratings || {},
-              remark: feedback.phase1.remark || "",
+              remark: feedback.phase1Remark || (feedback.phase1 && feedback.phase1.remark) || "",
             }
           : prev.phase1,
         phase2: feedback && feedback.phase2
           ? {
               ratings: feedback.phase2.ratings || {},
-              remark: feedback.phase2.remark || "",
+              remark: feedback.phase2Remark || (feedback.phase2 && feedback.phase2.remark) || "",
             }
           : prev.phase2,
       }));
@@ -236,8 +265,8 @@ export default function HomePage() {
     }
   };
   // Helper to remap keys for backend
-  function remapPhaseKeys(phaseRatings) {
-    const mapped = {};
+  function remapPhaseKeys(phaseRatings: Record<string, number>): Record<string, number> {
+    const mapped: Record<string, number> = {};
     Object.entries(phaseRatings).forEach(([key, value]) => {
       const match = key.match(/q(\d+)$/);
       if (match) {
