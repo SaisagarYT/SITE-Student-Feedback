@@ -1,19 +1,21 @@
 const express = require("express");
-const { authenticateAdmin, getAllStudentFeedbacks, logoutAdmin } = require("../controllers/adminController");
-// POST /api/admin/logout
-const { getDashboardStats } = require("../controllers/adminStatsController");
+const { getDashboardOverview, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail } = require("../controllers/adminController");
 
 const adminRouter = express.Router();
 
-
+// Admin logout endpoint (similar to student logout)
 adminRouter.post("/logout", logoutAdmin);
-// POST /api/admin/authenticate
-adminRouter.post("/authenticate", authenticateAdmin);
 
-// GET /api/admin/dashboard-stats
-adminRouter.get("/dashboard-stats", getDashboardStats);
+// Admin login endpoint (similar to student login)
+adminRouter.post("/login", loginAdmin);
 
-// GET /api/admin/feedbacks
-adminRouter.get("/feedbacks", getAllStudentFeedbacks);
+// Dashboard overview analytics endpoint
+adminRouter.get("/dashboard", getDashboardOverview);
+
+// Faculty performance analytics endpoint
+adminRouter.get("/faculty-performance", getFacultyPerformance);
+
+// Faculty detail analytics endpoint
+adminRouter.get("/faculty-detail/:facultyId", getFacultyDetail);
 
 module.exports = adminRouter;

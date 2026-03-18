@@ -1,6 +1,27 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getFacultyPerformance, getFacultyDetail } from "@/api";
+import { getAdminDashboardOverview } from "@/api";
+import { getAuth, signOut } from "firebase/auth";
+import { app } from "@/firebase";
+// Logout logic reused from AdminNavbar
+async function handleAdminLogout() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminEmail");
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    try {
+      const auth = getAuth(app);
+      const idToken = (await auth.currentUser?.getIdToken?.()) || null;
+      if (idToken) {
+        await import("@/api").then(({ logoutAdmin }) => logoutAdmin(idToken));
+      }
+      await signOut(auth);
+    } catch {}
+    window.location.href = "/admin/login";
+  }
+}
 import AdminDashboardProtected from "./AdminDashboardProtected";
 import { Icon } from "@iconify/react";
 
@@ -13,94 +34,216 @@ const TABS = [
   { key: "reports", label: "Reports", icon: "mdi:file-chart-outline" },
 ];
 
+
+
+type BranchParticipation = {
+  branch: string;
+  participation: number;
+  total: number;
+  participated: number;
+};
+
+type FeedbackByCourse = {
+  courseId: string;
+  courseName: string;
+  feedbackCount: number;
+};
+
+type RatingDistribution = {
+  rating: number;
+  count: number;
+  percent: number;
+};
+
+type DashboardOverview = {
+  totalStudents: number;
+  totalFaculty: number;
+  totalCourses: number;
+  totalFeedback: number;
+  completionRate: number;
+  avgRating: number;
+  branchParticipation: BranchParticipation[];
+  feedbackByCourse: FeedbackByCourse[];
+  ratingDistribution?: RatingDistribution[];
+};
+
 function OverviewSection() {
-  // Static demo values
-  const totalStudents = 350;
-  const totalFaculty = 24;
-  const totalCourses = 18;
-  const totalFeedbacks = 289;
-  const completionRate = 82;
-  const avgRating = 4.12;
+  const [data, setData] = useState<DashboardOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+
+  function isDashboardOverview(obj: unknown): obj is DashboardOverview {
+    if (typeof obj !== 'object' || obj === null) return false;
+    const o = obj as Record<string, unknown>;
+    return (
+      typeof o.totalStudents === 'number' &&
+      typeof o.totalFaculty === 'number' &&
+      typeof o.totalCourses === 'number' &&
+      typeof o.totalFeedback === 'number' &&
+      typeof o.completionRate === 'number' &&
+      typeof o.avgRating === 'number'
+    );
+  }
+
+  useEffect(() => {
+    getAdminDashboardOverview()
+      .then((res) => {
+        console.log("Dashboard Overview Data:", res);
+        if (isDashboardOverview(res)) {
+          setData(res);
+        } else {
+          setError("Invalid dashboard data format");
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Failed to load dashboard data");
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-60">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-(--brand)"></div>
+      </div>
+    );
+  }
+  if (error || !data) {
+    return <div className="text-center text-red-500 py-8">{error || "No data available"}</div>;
+  }
+
+  // Destructure backend fields
+  const {
+    totalStudents = 0,
+    totalFaculty = 0,
+    totalCourses = 0,
+    totalFeedback = 0,
+    completionRate = 0,
+    avgRating = 0,
+    branchParticipation = [],
+    feedbackByCourse = [],
+    ratingDistribution = []
+  } = data || {};
+
   return (
-    <div className="p-6 space-y-8">
-      {/* Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow">
+    <div className="p-2 sm:p-4 md:p-6 space-y-8 w-full">
+      {/* Metric Cards - Responsive Full Width */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 w-full">
+        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow w-full">
           <Icon icon="mdi:account-group-outline" className="text-3xl text-(--brand) mb-1" />
           <div className="text-xs text-(--muted) mb-1">Students</div>
           <div className="text-2xl font-bold">{totalStudents}</div>
         </div>
-        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow">
+        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow w-full">
           <Icon icon="mdi:account-tie-outline" className="text-3xl text-(--brand) mb-1" />
           <div className="text-xs text-(--muted) mb-1">Faculty</div>
           <div className="text-2xl font-bold">{totalFaculty}</div>
         </div>
-        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow">
+        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow w-full">
           <Icon icon="mdi:book-open-variant" className="text-3xl text-(--brand) mb-1" />
           <div className="text-xs text-(--muted) mb-1">Courses</div>
           <div className="text-2xl font-bold">{totalCourses}</div>
         </div>
-        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow">
+        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow w-full">
           <Icon icon="mdi:clipboard-check-outline" className="text-3xl text-(--brand) mb-1" />
           <div className="text-xs text-(--muted) mb-1">Feedback Submitted</div>
-          <div className="text-2xl font-bold">{totalFeedbacks}</div>
+          <div className="text-2xl font-bold">{totalFeedback}</div>
         </div>
-        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow">
+        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow w-full">
           <Icon icon="mdi:progress-check" className="text-3xl text-(--brand) mb-1" />
           <div className="text-xs text-(--muted) mb-1">Completion Rate</div>
           <div className="text-2xl font-bold">{completionRate}%</div>
         </div>
-        <div className="rounded-2xl bg-white/90 border border-(--line) p-5 flex flex-col items-center shadow">
-          <Icon icon="mdi:star-circle-outline" className="text-3xl text-yellow-500 mb-1" />
-          <div className="text-xs text-(--muted) mb-1">Avg. Rating</div>
-          <div className="text-2xl font-bold">{avgRating}</div>
-        </div>
       </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-        {/* Feedback Submissions by Course (Bar Chart) */}
-        <div className="rounded-2xl bg-white p-4 shadow flex flex-col">
-          <div className="font-semibold mb-2 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Feedback Submissions by Course</div>
-          <div className="flex-1 flex flex-col gap-2 justify-end h-44">
-            {[{label:'Machine Learning',val:120},{label:'Computer Networks',val:118},{label:'Cloud Computing',val:110}].map((c)=>(
-              <div key={c.label} className="flex items-center gap-2">
-                <div className="w-2 h-6 rounded bg-(--brand)" style={{height:`${c.val/2}px`, minWidth:'16px'}}></div>
-                <span className="text-sm text-(--ink) font-medium w-40">{c.label}</span>
-                <span className="text-xs text-(--muted)">{c.val}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Rating Distribution (Pie Chart) */}
-        <div className="rounded-2xl bg-white p-4 shadow flex flex-col items-center">
-          <div className="font-semibold mb-2 flex items-center gap-2"><Icon icon="mdi:chart-pie" className="text-lg text-(--brand)" />Rating Distribution</div>
-          <div className="relative w-32 h-32 my-2">
-            <div className="w-full h-full rounded-full" style={{background:"conic-gradient(#0a9892 0% 42%, #f7b731 42% 80%, #4fc3f7 80% 95%, #ef2a71 95% 98%, #bdbdbd 98% 100%)"}}></div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-xl font-bold">4.12</div>
-              <div className="text-xs text-(--muted)">Avg. Rating</div>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1 mt-2 text-xs w-full">
-            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-(--brand)"></span>Rating 5 <span className="ml-auto font-semibold">42%</span></span>
-            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-[#f7b731]"></span>Rating 4 <span className="ml-auto font-semibold">38%</span></span>
-            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-[#4fc3f7]"></span>Rating 3 <span className="ml-auto font-semibold">15%</span></span>
-            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-[#ef2a71]"></span>Rating 2 <span className="ml-auto font-semibold">3%</span></span>
-            <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-[#bdbdbd]"></span>Rating 1 <span className="ml-auto font-semibold">2%</span></span>
-          </div>
-        </div>
-        {/* Branch Feedback Participation (Bar Chart) */}
-        <div className="rounded-2xl bg-white p-4 shadow flex flex-col">
+      {/* Charts Section - Branch Feedback Participation full width, others below */}
+      <div className="flex flex-col gap-6 mt-8 w-full">
+        {/* Branch Feedback Participation (Bar Chart) - full width, dynamic from backend */}
+        <div className="rounded-2xl bg-white p-4 shadow flex flex-col w-full">
           <div className="font-semibold mb-2 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Branch Feedback Participation</div>
           <div className="flex-1 flex flex-col gap-2 justify-end h-44">
-            {[{label:'IT',val:82},{label:'CSE',val:79},{label:'ECE',val:74}].map((b)=>(
-              <div key={b.label} className="flex items-center gap-2">
-                <div className="h-4 rounded bg-(--brand)" style={{width:`${b.val*2}px`, minWidth:'16px'}}></div>
-                <span className="text-sm text-(--ink) font-medium w-16">{b.label}</span>
-                <span className="text-xs text-(--muted)">{b.val}%</span>
+            {branchParticipation.length === 0 ? (
+              <div className="text-center text-(--muted)">No branch data available</div>
+            ) : (
+              branchParticipation.map((b) => (
+                <div key={b.branch} className="flex items-center gap-2">
+                  <div className="h-4 rounded bg-(--brand)" style={{width:`${b.participation*2}px`, minWidth:'16px'}}></div>
+                  <span className="text-sm text-(--ink) font-medium w-16">{b.branch}</span>
+                  <span className="text-xs text-(--muted)">{b.participation}%</span>
+                  <span className="text-xs text-(--muted)">( {b.participated} / {b.total} )</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+          {/* Feedback Submissions by Course (Bar Chart) - improved layout and accessibility */}
+          <div className="rounded-2xl bg-white gap-5 p-4 shadow flex flex-col w-full">
+            <div className="font-semibold mb-2 flex items-center gap-2">
+              <Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Feedback Submissions by Course
+            </div>
+            <div className="flex flex-col gap-4">
+              {feedbackByCourse.length === 0 ? (
+                <div className="text-center text-(--muted)">No course feedback data available</div>
+              ) : (
+                feedbackByCourse.map((c) => (
+                  <div key={c.courseId} className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-(--muted) w-14">{c.courseId}</span>
+                    <div className="flex-1 flex items-center">
+                      <div
+                        className="h-6 rounded bg-(--brand) flex items-center justify-end pr-2 text-white font-semibold transition-all duration-300"
+                        style={{width: `${Math.max(c.feedbackCount * 28, 24)}px`, minWidth: '24px'}}
+                        aria-label={`Feedbacks: ${c.feedbackCount}`}
+                      >
+                        {c.feedbackCount > 0 && <span className="text-xs">{c.feedbackCount}</span>}
+                      </div>
+                    </div>
+                    <span className="text-sm text-(--ink) font-medium w-40 truncate" title={c.courseName}>{c.courseName}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          {/* Rating Distribution (Pie Chart) - dynamic */}
+          <div className="rounded-2xl bg-white p-4 shadow flex flex-col items-center w-full">
+            <div className="font-semibold mb-2 flex items-center gap-2"><Icon icon="mdi:chart-pie" className="text-lg text-(--brand)" />Rating Distribution</div>
+            <div className="relative w-32 h-32 my-2">
+              {/* Dynamic conic-gradient for pie chart */}
+              {(() => {
+                // Pie chart colors for 5-1
+                const colors = ["#0a9892", "#f7b731", "#4fc3f7", "#ef2a71", "#bdbdbd"];
+                // Compute stops without mutating 'last' after render
+                const stopsArr: string[] = [];
+                let acc = 0;
+                (ratingDistribution as RatingDistribution[]).forEach((r: RatingDistribution, i: number) => {
+                  const start = acc;
+                  const end = acc + r.percent;
+                  stopsArr.push(`${colors[i]} ${start}% ${end}%`);
+                  acc = end;
+                });
+                const stops = stopsArr.join(", ");
+                return (
+                  <div className="w-full h-full rounded-full" style={{background: `conic-gradient(${stops})`}}></div>
+                );
+              })()}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-xl font-bold">{avgRating}</div>
+                <div className="text-xs text-(--muted)">Avg. Rating</div>
               </div>
-            ))}
+            </div>
+            <div className="flex flex-col gap-1 mt-2 text-xs w-full">
+              {(ratingDistribution as RatingDistribution[]).slice().reverse().map((r: RatingDistribution) => {
+                // 5 to 1, match color order
+                const colors = ["#0a9892", "#f7b731", "#4fc3f7", "#ef2a71", "#bdbdbd"];
+                return (
+                  <span key={r.rating} className="inline-flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{background: colors[5 - r.rating]}}></span>
+                    Rating {r.rating} <span className="ml-auto font-semibold">{r.percent}%</span>
+                  </span>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -111,64 +254,49 @@ function OverviewSection() {
 
 
 function FacultyPerformanceSection() {
-  // Static data
-  type Faculty = { id: string; name: string; course: string; responses: number; avg: number };
-  const facultyData: Faculty[] = [
-    { id: "FAC101", name: "Dr Ramesh", course: "ML", responses: 120, avg: 4.23 },
-    { id: "FAC102", name: "Dr Anitha", course: "CN", responses: 118, avg: 4.01 },
-    { id: "FAC103", name: "Mr Prakash", course: "Cloud", responses: 115, avg: 3.95 },
-  ];
-  const branches = ["All", "CSE", "IT", "ECE"];
-  const semesters = ["All", "Semester 1", "Semester 2", "Semester 3", "Semester 4"];
-  const courses = ["All", "ML", "CN", "Cloud"];
-  const [branch, setBranch] = useState<string>("All");
-  const [semester, setSemester] = useState<string>("All");
-  const [course, setCourse] = useState<string>("All");
-  const [selected, setSelected] = useState<Faculty | null>(null);
+  // Dynamic data
+  type FacultyPerf = { facultyId: string; facultyName: string; courseName: string; responses: number; avgRating: number };
+  type FacultyDetail = {
+    totalResponses: number;
+    overallRating: number;
+    phase1Average: number;
+    phase2Average: number;
+    questionAverages: Record<string, number>;
+  };
+  const [facultyData, setFacultyData] = useState<FacultyPerf[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState<FacultyPerf | null>(null);
+  const [facultyDetail, setFacultyDetail] = useState<FacultyDetail | null>(null);
 
-  // Faculty detail static data
-  const facultyDetail = selected
-    ? {
-        name: selected.name,
-        course: selected.course,
-        branch: branch === "All" ? "CSE" : branch,
-        responses: selected.responses,
-        avg: selected.avg,
-        radar: [
-          { label: "Teaching clarity", val: 4.3 },
-          { label: "Subject knowledge", val: 4.5 },
-          { label: "Student interaction", val: 4.0 },
-          { label: "Coverage of syllabus", val: 4.2 },
-          { label: "Time management", val: 4.1 },
-        ],
-        phase: [4.05, 4.18],
-      }
-    : null;
+  useEffect(() => {
+    getFacultyPerformance()
+      .then((data) => {
+        console.log("Faculty Performance Data Response:", data);
+        setFacultyData(data);
+      })
+      .catch(() => setError("Failed to load faculty performance"))
+      .finally(() => setLoading(false));
+  }, []);
 
+  useEffect(() => {
+    let ignore = false;
+    if (selected) {
+      getFacultyDetail(selected.facultyId)
+        .then((res) => { if (!ignore) setFacultyDetail(res as FacultyDetail); })
+        .catch(() => { if (!ignore) setFacultyDetail(null); });
+    } else {
+      // Avoid direct setState in effect body
+      setTimeout(() => setFacultyDetail(null), 0);
+    }
+    return () => { ignore = true; };
+  }, [selected]);
+
+  if (loading) return <div className="p-6">Loading...</div>;
+  if (error) return <div className="p-6 text-red-500">{error}</div>;
   return (
     <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold flex items-center gap-2 mb-2"><Icon icon="mdi:account-tie-outline" className="text-2xl text-(--brand)" />Faculty Performance</h2>
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-4">
-        <div className="flex items-center gap-2">
-          <Icon icon="mdi:domain" className="text-lg text-(--brand)" />
-          <select value={branch} onChange={e => setBranch(e.target.value)} className="rounded-lg border border-(--line) px-2 py-1 text-sm bg-white">
-            {branches.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Icon icon="mdi:calendar-range" className="text-lg text-(--brand)" />
-          <select value={semester} onChange={e => setSemester(e.target.value)} className="rounded-lg border border-(--line) px-2 py-1 text-sm bg-white">
-            {semesters.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Icon icon="mdi:book-open-variant" className="text-lg text-(--brand)" />
-          <select value={course} onChange={e => setCourse(e.target.value)} className="rounded-lg border border-(--line) px-2 py-1 text-sm bg-white">
-            {courses.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-      </div>
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-(--line) bg-white/90 shadow">
         <table className="min-w-full text-sm">
@@ -183,50 +311,44 @@ function FacultyPerformanceSection() {
           </thead>
           <tbody>
             {facultyData.map((f) => (
-              <tr key={f.id} className="hover:bg-(--brand)/10 cursor-pointer transition" onClick={() => setSelected(f)}>
-                <td className="p-3 font-mono">{f.id}</td>
-                <td className="p-3">{f.name}</td>
-                <td className="p-3">{f.course}</td>
+              <tr key={f.facultyId} className="hover:bg-(--brand)/10 cursor-pointer transition" onClick={() => setSelected(f)}>
+                <td className="p-3 font-mono">{f.facultyId}</td>
+                <td className="p-3">{f.facultyName}</td>
+                <td className="p-3">{f.courseName}</td>
                 <td className="p-3">{f.responses}</td>
-                <td className="p-3 font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{f.avg.toFixed(2)}</td>
+                <td className="p-3 font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{f.avgRating.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="mt-4 text-sm text-(--muted)">All data is static for demo purposes. Click a faculty row for details.</div>
+      <div className="mt-4 text-sm text-(--muted)">Click a faculty row for details.</div>
 
       {/* Faculty Detail Modal */}
-      {facultyDetail && (
+      {facultyDetail && selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg relative">
             <button className="absolute top-3 right-3 text-(--muted) hover:text-red-500 text-xl" onClick={() => setSelected(null)}><Icon icon="mdi:close" /></button>
             <h3 className="text-xl font-bold mb-2 flex items-center gap-2"><Icon icon="mdi:account-tie-outline" className="text-xl text-(--brand)" />Faculty Detail</h3>
             <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
-              <div><span className="text-(--muted)">Name:</span> <span className="font-semibold">{facultyDetail.name}</span></div>
-              <div><span className="text-(--muted)">Course:</span> <span className="font-semibold">{facultyDetail.course}</span></div>
-              <div><span className="text-(--muted)">Branch:</span> <span className="font-semibold">{facultyDetail.branch}</span></div>
-              <div><span className="text-(--muted)">Responses:</span> <span className="font-semibold">{facultyDetail.responses}</span></div>
-              <div><span className="text-(--muted)">Avg. Rating:</span> <span className="font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{facultyDetail.avg}</span></div>
+              <div><span className="text-(--muted)">Name:</span> <span className="font-semibold">{selected.facultyName}</span></div>
+              <div><span className="text-(--muted)">Course:</span> <span className="font-semibold">{selected.courseName}</span></div>
+              <div><span className="text-(--muted)">Responses:</span> <span className="font-semibold">{facultyDetail.totalResponses}</span></div>
+              <div><span className="text-(--muted)">Avg. Rating:</span> <span className="font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{facultyDetail.overallRating}</span></div>
             </div>
-            {/* Radar Chart (SVG, static) */}
-            <div className="mb-4">
-              <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-radar" className="text-lg text-(--brand)" />Question Performance</div>
-              <RadarChart data={facultyDetail.radar} />
-            </div>
-            {/* Phase Comparison Chart (Bar, static) */}
+            {/* Phase Comparison Chart (Bar, dynamic) */}
             <div>
               <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Phase Comparison</div>
               <div className="flex gap-4 items-end h-24">
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-16 bg-(--brand) rounded-t-lg flex items-end justify-center" style={{height:`${facultyDetail.phase[0]*20}px`}}></div>
+                  <div className="w-8 h-16 bg-(--brand) rounded-t-lg flex items-end justify-center" style={{height:`${facultyDetail.phase1Average*20}px`}}></div>
                   <span className="text-xs mt-1">Phase 1</span>
-                  <span className="text-xs text-(--muted)">{facultyDetail.phase[0]}</span>
+                  <span className="text-xs text-(--muted)">{facultyDetail.phase1Average}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-16 bg-green-400 rounded-t-lg flex items-end justify-center" style={{height:`${facultyDetail.phase[1]*20}px`}}></div>
+                  <div className="w-8 h-16 bg-green-400 rounded-t-lg flex items-end justify-center" style={{height:`${facultyDetail.phase2Average*20}px`}}></div>
                   <span className="text-xs mt-1">Phase 2</span>
-                  <span className="text-xs text-(--muted)">{facultyDetail.phase[1]}</span>
+                  <span className="text-xs text-(--muted)">{facultyDetail.phase2Average}</span>
                 </div>
               </div>
             </div>
@@ -690,10 +812,6 @@ export default function AdminDashboardPage() {
   const Section = SECTION_COMPONENTS[activeTab] || OverviewSection;
   // Demo admin info
   const adminName = "Dr. S. Admin";
-  const semesters = ["Semester 1", "Semester 2", "Semester 3", "Semester 4"];
-  const [semester, setSemester] = useState("Semester 2");
-  const branches = ["All", "CSE", "IT", "ECE"];
-  const [branch, setBranch] = useState("All");
   return (
     <AdminDashboardProtected>
       <div className="min-h-screen bg-(--page) text-(--ink)">
@@ -704,19 +822,10 @@ export default function AdminDashboardPage() {
             <span className="font-semibold text-lg">{adminName}</span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Icon icon="mdi:calendar-range" className="text-xl text-(--brand)" />
-              <select value={semester} onChange={e => setSemester(e.target.value)} className="rounded-lg border border-(--line) px-2 py-1 text-sm bg-white">
-                {semesters.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Icon icon="mdi:domain" className="text-xl text-(--brand)" />
-              <select value={branch} onChange={e => setBranch(e.target.value)} className="rounded-lg border border-(--line) px-2 py-1 text-sm bg-white">
-                {branches.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
-            <button className="ml-2 rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white flex items-center gap-2 hover:bg-red-600 transition">
+            <button
+              className="ml-2 rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white flex items-center gap-2 hover:bg-red-600 transition"
+              onClick={handleAdminLogout}
+            >
               <Icon icon="mdi:logout" className="text-lg" />Logout
             </button>
           </div>

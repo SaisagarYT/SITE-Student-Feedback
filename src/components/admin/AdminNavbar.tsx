@@ -3,7 +3,6 @@ import { Icon } from "@iconify/react";
 import { useEffect, useState } from "react";
 import { getAuth, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { app } from "@/firebase";
-import { logoutAdmin } from "@/api";
 
 function ProfileCard({ user, profileImage }: { user: User | null; profileImage: string | null }) {
   if (!user) return null;
@@ -77,7 +76,7 @@ const AdminNavbar = () => {
                     const auth = getAuth(app);
                     const idToken = (await auth.currentUser?.getIdToken?.()) || null;
                     if (idToken) {
-                      await logoutAdmin(idToken);
+                      await import("@/api").then(({ logoutAdmin }) => logoutAdmin(idToken));
                     }
                     await signOut(auth);
                   } catch {}

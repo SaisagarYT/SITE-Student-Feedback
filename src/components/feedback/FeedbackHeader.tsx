@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import { getAuth, signOut, onAuthStateChanged } from "firebase/auth";
 import { app } from "@/firebase";
-import { logoutStudent } from "@/api";
+// import { logoutStudent } from "@/api";
 
 type FeedbackHeaderProps = {
   activePhase: "phase1" | "phase2";

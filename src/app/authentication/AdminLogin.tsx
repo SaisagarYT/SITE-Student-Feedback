@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from "firebase/auth";
 import { app } from "@/firebase";
-import { authenticateAdmin } from "@/api";
+import { loginAdmin } from "@/api";
 
 type AdminApiResponse = {
   authenticated?: boolean;
@@ -39,9 +39,9 @@ export default function AdminLogin() {
       if (user) {
         const idToken = await user.getIdToken();
         document.cookie = `token=${idToken}; path=/; max-age=3600;`;
-        const data = await authenticateAdmin(idToken) as AdminApiResponse;
-        console.log("Backend response from authenticateAdmin:", data);
-        if (data && data.authenticated && data.admin && data.admin.email) {
+        const data = await loginAdmin(idToken) as AdminApiResponse;
+        console.log("Backend response from loginAdmin:", data);
+        if (data && data.loggedIn && data.admin && data.admin.email) {
           localStorage.setItem("adminEmail", data.admin.email);
           localStorage.setItem("adminRole", data.admin.role || "");
           localStorage.setItem("adminName", data.admin.name || user.displayName || "");
