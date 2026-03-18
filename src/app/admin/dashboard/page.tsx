@@ -63,7 +63,7 @@ function OverviewSection() {
         <div className="rounded-2xl bg-white p-4 shadow flex flex-col">
           <div className="font-semibold mb-2 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Feedback Submissions by Course</div>
           <div className="flex-1 flex flex-col gap-2 justify-end h-44">
-            {[{label:'Machine Learning',val:120},{label:'Computer Networks',val:118},{label:'Cloud Computing',val:110}].map((c,i)=>(
+            {[{label:'Machine Learning',val:120},{label:'Computer Networks',val:118},{label:'Cloud Computing',val:110}].map((c)=>(
               <div key={c.label} className="flex items-center gap-2">
                 <div className="w-2 h-6 rounded bg-(--brand)" style={{height:`${c.val/2}px`, minWidth:'16px'}}></div>
                 <span className="text-sm text-(--ink) font-medium w-40">{c.label}</span>
@@ -94,7 +94,7 @@ function OverviewSection() {
         <div className="rounded-2xl bg-white p-4 shadow flex flex-col">
           <div className="font-semibold mb-2 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Branch Feedback Participation</div>
           <div className="flex-1 flex flex-col gap-2 justify-end h-44">
-            {[{label:'IT',val:82},{label:'CSE',val:79},{label:'ECE',val:74}].map((b,i)=>(
+            {[{label:'IT',val:82},{label:'CSE',val:79},{label:'ECE',val:74}].map((b)=>(
               <div key={b.label} className="flex items-center gap-2">
                 <div className="h-4 rounded bg-(--brand)" style={{width:`${b.val*2}px`, minWidth:'16px'}}></div>
                 <span className="text-sm text-(--ink) font-medium w-16">{b.label}</span>
@@ -535,7 +535,7 @@ function BranchAnalyticsSection() {
       <h2 className="text-2xl font-bold flex items-center gap-2 mb-2"><Icon icon="mdi:domain" className="text-2xl text-(--brand)" />Branch Analytics</h2>
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-(--line) bg-white/90 shadow mb-6">
-        <table className="min-w-[600px] w-full text-sm whitespace-nowrap">
+        <table className="min-w-150 w-full text-sm whitespace-nowrap">
           <thead>
             <tr className="bg-(--surface-soft) text-(--muted)">
               <th className="p-3 font-semibold text-left">Branch</th>
@@ -548,11 +548,11 @@ function BranchAnalyticsSection() {
           <tbody>
             {branches.map(b => (
               <tr key={b.name} className="hover:bg-(--brand)/10 cursor-pointer transition">
-                <td className="p-3 min-w-[100px] flex items-center gap-2"><Icon icon="mdi:domain" className="text-lg text-(--brand)" />{b.name}</td>
-                <td className="p-3 min-w-[80px] text-center">{b.courses}</td>
-                <td className="p-3 min-w-[80px] text-center">{b.faculty}</td>
-                <td className="p-3 min-w-[100px] text-center font-semibold">{b.avg}</td>
-                <td className="p-3 min-w-[120px] text-center">{b.participation}%</td>
+                <td className="p-3 min-w-25 flex items-center gap-2"><Icon icon="mdi:domain" className="text-lg text-(--brand)" />{b.name}</td>
+                <td className="p-3 min-w-20 text-center">{b.courses}</td>
+                <td className="p-3 min-w-20 text-center">{b.faculty}</td>
+                <td className="p-3 min-w-25 text-center font-semibold">{b.avg}</td>
+                <td className="p-3 min-w-30 text-center">{b.participation}%</td>
               </tr>
             ))}
           </tbody>

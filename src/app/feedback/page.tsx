@@ -439,7 +439,20 @@ export default function HomePage() {
                     Please answer all questions in both phases and provide remarks. Submit once both phases are complete.
                   </p>
                 </div>
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+                  {/* Stepper/Checklist UI */}
+                  <div className="flex flex-col gap-1 sm:flex-row sm:gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold ${phase1Complete ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 bg-white text-gray-500'}`}>{phase1Complete ? <Icon icon="mdi:check" /> : 1}</span>
+                      <span className={`text-sm font-medium ${phase1Complete ? 'text-green-700' : 'text-gray-700'}`}>Phase 1</span>
+                    </div>
+                    <span className="hidden sm:inline-block text-gray-400">→</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold ${phase2Complete ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 bg-white text-gray-500'}`}>{phase2Complete ? <Icon icon="mdi:check" /> : 2}</span>
+                      <span className={`text-sm font-medium ${phase2Complete ? 'text-green-700' : 'text-gray-700'}`}>Phase 2</span>
+                    </div>
+                  </div>
+                  {/* Button only enabled when both phases complete */}
                   <button
                     type="button"
                     onClick={handleSubmit}
@@ -452,7 +465,9 @@ export default function HomePage() {
                         : "rounded-full bg-(--accent) px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_36px_rgba(239,42,113,0.32)] transition hover:bg-(--accent-deep)"
                     }
                   >
-                    {isSubmitting ? "Submitting..." : "Submit All Feedback"}
+                    {allPhasesComplete
+                      ? (isSubmitting ? "Submitting..." : "Submit All Feedback")
+                      : (!phase1Complete ? "Fill Phase 1" : "Fill Phase 2")}
                   </button>
                 </div>
               </div>

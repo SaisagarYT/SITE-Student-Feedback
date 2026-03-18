@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { useEffect, useState } from "react";
 import { getAuth, signOut, onAuthStateChanged, User } from "firebase/auth";

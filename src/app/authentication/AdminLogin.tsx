@@ -48,7 +48,7 @@ export default function AdminLogin() {
           if (user.photoURL) {
             localStorage.setItem("adminProfileImage", user.photoURL);
           }
-          router.replace("/admin");
+          router.replace("/admin/dashboard");
         } else {
           window.alert("You are not authorized as an admin.");
         }
