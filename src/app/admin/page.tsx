@@ -4,54 +4,16 @@ import Link from "next/link";
 import AdminSubmissionCard from "@/components/admin/AdminSubmissionCard";
 import AdminNavbar from "@/components/admin/AdminNavbar";
 
-import { useEffect, useState } from "react";
-import { getAdminDashboardStats, getAllStudentFeedbacks } from "@/api";
+import { useState } from "react";
 import { mockSubmissions } from "@/data/adminSubmissions";
 
 import AdminRootProtected from "./AdminRootProtected";
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<{ totalSubmissions: number; phase1Count: number; phase2Count: number; averageRating: number } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [searchEmail, setSearchEmail] = useState("");
-  const [searchedEmail, setSearchedEmail] = useState<string | null>(null);
-  const [allFeedbacks, setAllFeedbacks] = useState<Array<{ email: string }>>([]);
-  const [feedbacksLoading, setFeedbacksLoading] = useState(true);
-  const [feedbacksError, setFeedbacksError] = useState("");
-
-  useEffect(() => {
-    getAdminDashboardStats()
-      .then((data) => {
-        const stats = data as {
-          totalSubmissions?: number;
-          phase1Count?: number;
-          phase2Count?: number;
-          averageRating?: number;
-        };
-        setStats({
-          totalSubmissions: stats.totalSubmissions ?? 0,
-          phase1Count: stats.phase1Count ?? 0,
-          phase2Count: stats.phase2Count ?? 0,
-          averageRating: stats.averageRating ?? 0,
-        });
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Failed to load dashboard stats.");
-        setLoading(false);
-      });
-    // Fetch all feedbacks for initial display
-    getAllStudentFeedbacks()
-      .then((feedbacks) => {
-        setAllFeedbacks(feedbacks);
-        setFeedbacksLoading(false);
-      })
-      .catch(() => {
-        setFeedbacksError("Failed to load feedback submissions.");
-        setFeedbacksLoading(false);
-      });
-  }, []);
+  const [searchId, setSearchId] = useState("");
+  const [searchedId, setSearchedId] = useState<string | null>(null);
+  // Use static mockSubmissions for all feedbacks
+  const allFeedbacks = mockSubmissions;
 
   return (
     <AdminRootProtected>
@@ -79,16 +41,15 @@ export default function AdminDashboardPage() {
               className="flex items-center gap-3"
               onSubmit={e => {
                 e.preventDefault();
-                setSearchedEmail(searchEmail.trim());
+                setSearchedId(searchId.trim());
               }}
             >
               <input
-                type="email"
-                placeholder="Search by student email"
-                value={searchEmail}
-                onChange={e => setSearchEmail(e.target.value)}
+                type="text"
+                placeholder="Search by student ID"
+                value={searchId}
+                onChange={e => setSearchId(e.target.value)}
                 className="rounded-full border border-(--line) px-4 py-2 text-sm focus:border-(--brand) focus:outline-none"
-                required
               />
               <button
                 type="submit"
@@ -101,50 +62,41 @@ export default function AdminDashboardPage() {
         </section>
         <section className="relative py-8 sm:py-10">
           <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-            {loading ? (
-              <div className="text-center py-10 text-lg text-(--muted)">Loading dashboard stats...</div>
-            ) : error ? (
-              <div className="text-center py-10 text-red-500">{error}</div>
-            ) : stats && (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Total submissions</p>
-                  <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{stats.totalSubmissions}</p>
-                </div>
-                <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Phase 1 responses</p>
-                  <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{stats.phase1Count}</p>
-                </div>
-                <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Phase 2 responses</p>
-                  <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{stats.phase2Count}</p>
-                </div>
-                <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Average rating</p>
-                  <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{stats.averageRating} / 5</p>
-                </div>
+            {/* Static summary cards */}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
+                <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Total submissions</p>
+                <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{allFeedbacks.length}</p>
               </div>
-            )}
+              <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
+                <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Phase 1 responses</p>
+                <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{allFeedbacks.filter(fb => fb.phase === "phase1").length}</p>
+              </div>
+              <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
+                <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Phase 2 responses</p>
+                <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{allFeedbacks.filter(fb => fb.phase === "phase2").length}</p>
+              </div>
+              <div className="rounded-3xl border border-(--line) bg-white px-5 py-5 shadow-[0_14px_35px_rgba(8,80,77,0.1)]">
+                <p className="text-xs font-semibold tracking-[0.14em] text-(--muted) uppercase">Average rating</p>
+                <p className="mt-2 text-3xl font-semibold text-(--brand-deep)">{(allFeedbacks.reduce((acc, fb) => acc + (Object.values(fb.ratings).reduce((a, b) => a + b, 0) / Object.values(fb.ratings).length), 0) / allFeedbacks.length).toFixed(2)} / 5</p>
+              </div>
+            </div>
             <div className="mt-7 space-y-4">
-              {feedbacksLoading ? (
-                <div className="text-center text-(--muted)">Loading submissions...</div>
-              ) : feedbacksError ? (
-                <div className="text-center text-red-500">{feedbacksError}</div>
-              ) : searchedEmail ? (
+              {searchedId ? (
                 <>
-                  {allFeedbacks.filter(fb => fb.email === searchedEmail).length > 0 ? (
-                    allFeedbacks.filter(fb => fb.email === searchedEmail).map(fb => (
-                      <AdminSubmissionCard key={fb.email} submission={{ email: fb.email }} />
+                  {allFeedbacks.filter(fb => fb.studentId === searchedId).length > 0 ? (
+                    allFeedbacks.filter(fb => fb.studentId === searchedId).map(fb => (
+                      <AdminSubmissionCard key={fb.id} submission={{ email: fb.studentId }} />
                     ))
                   ) : (
-                    <div className="text-center text-(--muted)">No feedback found for this email.</div>
+                    <div className="text-center text-(--muted)">No feedback found for this student ID.</div>
                   )}
                 </>
               ) : (
                 <>
                   {allFeedbacks.length > 0 ? (
                     allFeedbacks.map(fb => (
-                      <AdminSubmissionCard key={fb.email} submission={{ email: fb.email }} />
+                      <AdminSubmissionCard key={fb.id} submission={{ email: fb.studentId }} />
                     ))
                   ) : (
                     <div className="text-center text-(--muted)">No feedback submissions found.</div>
