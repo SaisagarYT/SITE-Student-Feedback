@@ -1,4 +1,25 @@
 /**
+ * Get course analytics (admin)
+ * @param {object} filters - Optional filters: { courseId, facultyId }
+ * @returns {Promise<Array>} Array of course analytics objects
+ */
+export async function getCourseAnalytics(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.courseId) params.append('courseId', filters.courseId);
+  if (filters.facultyId) params.append('facultyId', filters.facultyId);
+  if (filters.branch) params.append('branch', filters.branch);
+  if (filters.semester) params.append('semester', filters.semester);
+  if (filters.facultyName) params.append('facultyName', filters.facultyName);
+  const url = `${BASE_URL}/api/admin/course-analytics${params.toString() ? '?' + params.toString() : ''}`;
+  // Removed debug log as requested
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error('[getCourseAnalytics] 404 or error:', response.status, response.statusText, url);
+    throw new Error('Failed to fetch course analytics');
+  }
+  return response.json();
+}
+/**
  * Get faculty performance analytics (admin)
  * @returns {Promise<Array>} Array of faculty performance objects
  */

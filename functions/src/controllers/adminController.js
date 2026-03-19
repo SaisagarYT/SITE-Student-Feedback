@@ -1,3 +1,109 @@
+// GET /api/admin/course-analytics
+// Returns: [{ courseId, courseName, facultyName, responses, avgRating }]
+// Supports filters: ?courseId=...&facultyId=...
+async function getCourseAnalytics(req, res) {
+  try {
+    const { courseId, facultyId, branch, semester, facultyName } = req.query;
+    const feedbackSnap = await db.collection("feedback").get();
+    const coursesSnap = await db.collection("courses").get();
+    const facultiesSnap = await db.collection("faculties").get();
+
+    // Build lookup maps
+    const courseMap = {};
+    coursesSnap.forEach(doc => {
+      const d = doc.data();
+      courseMap[d.courseId] = { courseName: d.courseName || d.name || d.courseId, facultyId: d.facultyId };
+    });
+    const facultyMap = {};
+    facultiesSnap.forEach(doc => {
+      const d = doc.data();
+      facultyMap[d.facultyId] = d.facultyName || d.name || d.facultyId;
+    });
+
+    // Group feedback by courseId, and aggregate question-wise ratings for both phases
+    const analytics = {};
+    feedbackSnap.forEach(doc => {
+      const d = doc.data();
+      if (!d.courseId) return;
+      if (courseId && d.courseId !== courseId) return;
+      if (facultyId && d.facultyId !== facultyId) return;
+
+      // Filter by branch (if present)
+      if (branch && d.branch && d.branch !== branch) return;
+      if (branch && !d.branch && courseMap[d.courseId]?.branch && courseMap[d.courseId].branch !== branch) return;
+      if (branch && !d.branch && !courseMap[d.courseId]?.branch) return;
+
+      // Filter by semester (if present)
+      if (semester && d.semester && d.semester !== semester) return;
+      if (semester && !d.semester && courseMap[d.courseId]?.semester && courseMap[d.courseId].semester !== semester) return;
+      if (semester && !d.semester && !courseMap[d.courseId]?.semester) return;
+
+      // Filter by facultyName (if present)
+      if (facultyName) {
+        const facultyIdFromCourse = courseMap[d.courseId]?.facultyId || d.facultyId;
+        const facultyNameFromMap = facultyMap[facultyIdFromCourse];
+        if (!facultyNameFromMap || facultyNameFromMap !== facultyName) return;
+      }
+
+      if (!analytics[d.courseId]) {
+        analytics[d.courseId] = {
+          courseId: d.courseId,
+          responses: 0,
+          ratingSum: 0,
+          ratingCount: 0,
+          facultyId: d.facultyId,
+          phase1: { sum: Array(9).fill(0), count: Array(9).fill(0) },
+          phase2: { sum: Array(11).fill(0), count: Array(11).fill(0) }
+        };
+      }
+      // phase1: q1–q9
+      if (d.phase1) {
+        for (let i = 1; i <= 9; i++) {
+          const val = d.phase1[`q${i}`];
+          if (typeof val === "number" && val >= 1 && val <= 5) {
+            analytics[d.courseId].ratingSum += val;
+            analytics[d.courseId].ratingCount++;
+            analytics[d.courseId].phase1.sum[i-1] += val;
+            analytics[d.courseId].phase1.count[i-1]++;
+          }
+        }
+      }
+      // phase2: q1–q11
+      if (d.phase2) {
+        for (let i = 1; i <= 11; i++) {
+          const val = d.phase2[`q${i}`];
+          if (typeof val === "number" && val >= 1 && val <= 5) {
+            analytics[d.courseId].ratingSum += val;
+            analytics[d.courseId].ratingCount++;
+            analytics[d.courseId].phase2.sum[i-1] += val;
+            analytics[d.courseId].phase2.count[i-1]++;
+          }
+        }
+      }
+      analytics[d.courseId].responses++;
+    });
+
+    // Prepare output with question-wise averages for both phases
+    const result = Object.values(analytics).map((c) => {
+      // Calculate question-wise averages for phase1 and phase2
+      const phase1Averages = c.phase1.sum.map((sum, i) => c.phase1.count[i] > 0 ? Number((sum / c.phase1.count[i]).toFixed(2)) : null);
+      const phase2Averages = c.phase2.sum.map((sum, i) => c.phase2.count[i] > 0 ? Number((sum / c.phase2.count[i]).toFixed(2)) : null);
+      return {
+        courseId: c.courseId,
+        courseName: courseMap[c.courseId]?.courseName || c.courseId,
+        facultyName: facultyMap[courseMap[c.courseId]?.facultyId] || c.facultyId || "",
+        responses: c.responses,
+        avgRating: c.ratingCount > 0 ? Number((c.ratingSum / c.ratingCount).toFixed(2)) : 0,
+        phase1Averages, // Array of 9 values (or null if no data)
+        phase2Averages  // Array of 11 values (or null if no data)
+      };
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Course analytics error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+}
 // GET /api/admin/faculty-performance
 // Returns: [{ facultyId, facultyName, courseName, responses, avgRating }]
 async function getFacultyPerformance(req, res) {
@@ -337,4 +443,4 @@ async function loginAdmin(req, res) {
   }
 }
 
-module.exports = { getDashboardOverview, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail };
+module.exports = { getDashboardOverview, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail, getCourseAnalytics };

@@ -1,7 +1,10 @@
 const express = require("express");
-const { getDashboardOverview, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail } = require("../controllers/adminController");
+const { getDashboardOverview, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail, getCourseAnalytics } = require("../controllers/adminController");
 
 const adminRouter = express.Router();
+
+// Course analytics endpoint
+adminRouter.get("/course-analytics", getCourseAnalytics);
 
 // Admin logout endpoint (similar to student logout)
 adminRouter.post("/logout", logoutAdmin);

@@ -359,61 +359,108 @@ function FacultyPerformanceSection() {
   );
 }
 
-// Simple SVG Radar Chart for static demo
-type RadarDatum = { label: string; val: number };
-function RadarChart({ data }: { data: RadarDatum[] }) {
-  // 5 points, static radius
-  const cx = 80, cy = 80, r = 60;
-  const angles = data.map((_, i) => (2 * Math.PI * i) / data.length);
-  const points = data.map((d, i) => [
-    cx + r * (d.val / 5) * Math.sin(angles[i]),
-    cy - r * (d.val / 5) * Math.cos(angles[i])
-  ]);
-  const polygon = points.map((p) => p.join(",")).join(" ");
-  return (
-    <svg width="160" height="160" className="mb-2">
-      <circle cx={cx} cy={cy} r={r} fill="#f3f4f6" />
-      <polygon points={polygon} fill="#0a9892bb" stroke="#0a9892" strokeWidth="2" />
-      {points.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="4" fill="#0a9892" />
-      ))}
-      {data.map((d, i) => (
-        <text key={i} x={cx + (r + 18) * Math.sin(angles[i])} y={cy - (r + 18) * Math.cos(angles[i])} textAnchor="middle" fontSize="10" fill="#333">{d.label}</text>
-      ))}
-    </svg>
-  );
-}
+
+
+
+import { getCourseAnalytics } from "@/api";
 
 function CourseFeedbackSection() {
-  // Static data
-  type Course = { id: string; name: string; faculty: string; facultyId: string; feedbackCount: number; avg: number };
-  const courseData: Course[] = [
-    { id: "IT601", name: "ML", faculty: "Dr Ramesh", facultyId: "FAC101", feedbackCount: 120, avg: 4.21 },
-    { id: "IT602", name: "CN", faculty: "Dr Anitha", facultyId: "FAC102", feedbackCount: 118, avg: 4.03 },
-    { id: "IT603", name: "Cloud", faculty: "Mr Prakash", facultyId: "FAC103", feedbackCount: 115, avg: 3.98 },
-  ];
+  // Dynamic data
+  type Course = {
+    courseId: string;
+    courseName: string;
+    facultyName: string;
+    facultyId: string;
+    feedbackCount: number;
+    avgRating: number;
+    phase1Averages?: number[] | null;
+    phase2Averages?: number[] | null;
+  };
   const branches = ["All", "CSE", "IT", "ECE"];
   const semesters = ["All", "Semester 1", "Semester 2", "Semester 3", "Semester 4"];
-  const faculties = ["All", "Dr Ramesh", "Dr Anitha", "Mr Prakash"];
+  const [facultyList, setFacultyList] = useState<string[]>(["All"]);
   const [branch, setBranch] = useState<string>("All");
   const [semester, setSemester] = useState<string>("All");
   const [faculty, setFaculty] = useState<string>("All");
+  const [courseData, setCourseData] = useState<Course[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
   const [selected, setSelected] = useState<Course | null>(null);
+  // For modal detail
+  type CourseDetail = {
+    name: string;
+    faculty: string;
+    branch: string;
+    semester: string;
+    responses: number;
+    avg: number;
+    phase1Averages: (number | null)[];
+    phase2Averages: (number | null)[];
+    phase: number[];
+    ratingDist: number[];
+  } | null;
+  const [courseDetail, setCourseDetail] = useState<CourseDetail>(null);
 
-  // Course detail static data
-  const courseDetail = selected
-    ? {
-        name: selected.name,
-        faculty: selected.faculty,
+  // Fetch course analytics
+  useEffect(() => {
+    // Avoid direct setState in effect body: use async function
+    let ignore = false;
+    async function fetchData() {
+      setLoading(true);
+      setError("");
+      // Build filters
+      const filters: Record<string, string> = {};
+      if (branch !== "All") filters.branch = branch;
+      if (semester !== "All") filters.semester = semester;
+      if (faculty !== "All") filters.facultyName = faculty;
+      try {
+        const data = await getCourseAnalytics(filters);
+        console.log('[CourseFeedback] Backend response:', data);
+        if (!ignore) {
+          setCourseData(data || []);
+          // Build faculty list from data
+          const uniqueFaculties = Array.from(new Set((data || []).map((c: Course) => c.facultyName))).filter(Boolean);
+          setFacultyList(["All", ...uniqueFaculties]);
+        }
+      } catch {
+        if (!ignore) setError("Failed to load course analytics");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { ignore = true; };
+  }, [branch, semester, faculty]);
+
+  // Fetch course detail for modal (optional: can be expanded to fetch more details)
+  useEffect(() => {
+    let ignore = false;
+    if (selected) {
+      // Calculate phase averages for bar chart
+      const phase1Avg = selected.phase1Averages && selected.phase1Averages.length > 0
+        ? Number((selected.phase1Averages.filter((v) => v !== null).reduce((a, b) => a + (b ?? 0), 0) / selected.phase1Averages.filter((v) => v !== null).length).toFixed(2))
+        : 0;
+      const phase2Avg = selected.phase2Averages && selected.phase2Averages.length > 0
+        ? Number((selected.phase2Averages.filter((v) => v !== null).reduce((a, b) => a + (b ?? 0), 0) / selected.phase2Averages.filter((v) => v !== null).length).toFixed(2))
+        : 0;
+      const detail: CourseDetail = {
+        name: selected.courseName,
+        faculty: selected.facultyName,
         branch: branch === "All" ? "CSE" : branch,
         semester: semester === "All" ? "Semester 2" : semester,
         responses: selected.feedbackCount,
-        avg: selected.avg,
-        questions: [4.1, 4.3, 3.9, 4.0, 4.2],
-        phase: [4.05, 4.18],
-        ratingDist: [42, 38, 15, 3, 2],
-      }
-    : null;
+        avg: selected.avgRating,
+        phase1Averages: selected.phase1Averages ?? [],
+        phase2Averages: selected.phase2Averages ?? [],
+        phase: [phase1Avg, phase2Avg],
+        ratingDist: [42, 38, 15, 3, 2], // Placeholder, replace with real data if available
+      };
+      if (!ignore) setCourseDetail(detail);
+    } else {
+      if (!ignore) setCourseDetail(null);
+    }
+    return () => { ignore = true; };
+  }, [selected, branch, semester]);
 
   return (
     <div className="p-6 space-y-6">
@@ -435,41 +482,51 @@ function CourseFeedbackSection() {
         <div className="flex items-center gap-2">
           <Icon icon="mdi:account-tie-outline" className="text-lg text-(--brand)" />
           <select value={faculty} onChange={e => setFaculty(e.target.value)} className="rounded-lg border border-(--line) px-2 py-1 text-sm bg-white">
-            {faculties.map(f => <option key={f} value={f}>{f}</option>)}
+            {facultyList.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
         </div>
       </div>
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-(--line) bg-white/90 shadow">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="bg-(--surface-soft) text-(--muted)">
-              <th className="p-3 font-semibold text-left">Course ID</th>
-              <th className="p-3 font-semibold text-left">Course Name</th>
-              <th className="p-3 font-semibold text-left">Faculty</th>
-              <th className="p-3 font-semibold text-left">Feedback Count</th>
-              <th className="p-3 font-semibold text-left">Avg Rating</th>
-            </tr>
-          </thead>
-          <tbody>
-            {courseData.map(c => (
-              <tr key={c.id} className="hover:bg-(--brand)/10 cursor-pointer transition" onClick={() => setSelected(c)}>
-                <td className="p-3 font-mono">{c.id}</td>
-                <td className="p-3">{c.name}</td>
-                <td className="p-3 flex items-center gap-2"><Icon icon="mdi:account-tie-outline" className="text-lg text-(--brand)" />{c.faculty}</td>
-                <td className="p-3">{c.feedbackCount}</td>
-                <td className="p-3 font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{c.avg.toFixed(2)}</td>
+        {loading ? (
+          <div className="p-6 text-center">Loading...</div>
+        ) : error ? (
+          <div className="p-6 text-red-500">{error}</div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-(--surface-soft) text-(--muted)">
+                <th className="p-3 font-semibold text-left">Course ID</th>
+                <th className="p-3 font-semibold text-left">Course Name</th>
+                <th className="p-3 font-semibold text-left">Faculty</th>
+                <th className="p-3 font-semibold text-left">Feedback Count</th>
+                <th className="p-3 font-semibold text-left">Avg Rating</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {courseData.length === 0 ? (
+                <tr><td colSpan={5} className="p-4 text-center text-(--muted)">No course data available</td></tr>
+              ) : (
+                courseData.map((c) => (
+                  <tr key={c.courseId} className="hover:bg-(--brand)/10 cursor-pointer transition" onClick={() => setSelected(c)}>
+                    <td className="p-3 font-mono">{c.courseId}</td>
+                    <td className="p-3">{c.courseName}</td>
+                    <td className="p-3 flex items-center gap-2"><Icon icon="mdi:account-tie-outline" className="text-lg text-(--brand)" />{c.facultyName}</td>
+                    <td className="p-3">{c.feedbackCount}</td>
+                    <td className="p-3 font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{c.avgRating?.toFixed(2) ?? "-"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
-      <div className="mt-4 text-sm text-(--muted)">All data is static for demo purposes. Click a course row for details.</div>
+      <div className="mt-4 text-sm text-(--muted)">All data is dynamic. Click a course row for details.</div>
 
       {/* Course Detail Modal */}
       {courseDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg relative">
+          <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
             <button className="absolute top-3 right-3 text-(--muted) hover:text-red-500 text-xl" onClick={() => setSelected(null)}><Icon icon="mdi:close" /></button>
             <h3 className="text-xl font-bold mb-2 flex items-center gap-2"><Icon icon="mdi:book-open-variant" className="text-xl text-(--brand)" />Course Detail</h3>
             <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
@@ -480,25 +537,48 @@ function CourseFeedbackSection() {
               <div><span className="text-(--muted)">Total Responses:</span> <span className="font-semibold">{courseDetail.responses}</span></div>
               <div><span className="text-(--muted)">Avg. Rating:</span> <span className="font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{courseDetail.avg}</span></div>
             </div>
-            {/* Question Averages */}
+            {/* Question Averages for Phase 1 */}
             <div className="mb-4">
-              <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Question Averages</div>
+              <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Phase 1 Question Averages</div>
               <div className="flex gap-2">
-                {courseDetail.questions.map((q, i) => (
+                {courseDetail.phase1Averages.map((q, i) => (
                   <div key={i} className="flex flex-col items-center">
                     <span className="text-xs text-(--muted)">Q{i+1}</span>
-                    <span className="font-semibold text-lg">{q}</span>
+                    <span className="font-semibold text-lg">{q !== null ? q : '-'}</span>
                   </div>
                 ))}
               </div>
             </div>
-            {/* Question-wise Ratings Chart (Bar) */}
+            {/* Question Averages for Phase 2 */}
             <div className="mb-4">
-              <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Question-wise Ratings</div>
+              <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-green-400" />Phase 2 Question Averages</div>
+              <div className="flex gap-2">
+                {courseDetail.phase2Averages.map((q, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <span className="text-xs text-(--muted)">Q{i+1}</span>
+                    <span className="font-semibold text-lg">{q !== null ? q : '-'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Question-wise Ratings Chart (Bar) for Phase 1 */}
+            <div className="mb-4">
+              <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Phase 1 Question-wise Ratings</div>
               <div className="flex gap-2 items-end h-24">
-                {courseDetail.questions.map((q, i) => (
-                  <div key={i} className="w-8 bg-(--brand) rounded-t-lg flex items-end justify-center" style={{height:`${q*20}px`}}>
-                    <span className="text-xs text-white pb-1">{q}</span>
+                {courseDetail.phase1Averages.map((q, i) => (
+                  <div key={i} className="w-8 bg-(--brand) rounded-t-lg flex items-end justify-center" style={{height:`${(q ?? 0)*20}px`}}>
+                    <span className="text-xs text-white pb-1">{q !== null ? q : '-'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Question-wise Ratings Chart (Bar) for Phase 2 */}
+            <div className="mb-4">
+              <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-green-400" />Phase 2 Question-wise Ratings</div>
+              <div className="flex gap-2 items-end h-24">
+                {courseDetail.phase2Averages.map((q, i) => (
+                  <div key={i} className="w-8 bg-green-400 rounded-t-lg flex items-end justify-center" style={{height:`${(q ?? 0)*20}px`}}>
+                    <span className="text-xs text-white pb-1">{q !== null ? q : '-'}</span>
                   </div>
                 ))}
               </div>
@@ -812,6 +892,13 @@ export default function AdminDashboardPage() {
   const Section = SECTION_COMPONENTS[activeTab] || OverviewSection;
   // Demo admin info
   const adminName = "Dr. S. Admin";
+
+  useEffect(() => {
+    if (activeTab === "course") {
+      console.log("[AdminDashboard] Course Feedback tab selected");
+    }
+  }, [activeTab]);
+
   return (
     <AdminDashboardProtected>
       <div className="min-h-screen bg-(--page) text-(--ink)">
