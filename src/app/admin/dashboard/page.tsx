@@ -538,7 +538,7 @@ function CourseFeedbackSection() {
               <div><span className="text-(--muted)">Avg. Rating:</span> <span className="font-semibold flex items-center gap-1"><Icon icon="mdi:star" className="text-yellow-500" />{courseDetail.avg}</span></div>
             </div>
             {/* Question Averages for Phase 1 */}
-            <div className="mb-4">
+            {/* <div className="mb-4">
               <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Phase 1 Question Averages</div>
               <div className="flex gap-2">
                 {courseDetail.phase1Averages.map((q, i) => (
@@ -548,9 +548,9 @@ function CourseFeedbackSection() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
             {/* Question Averages for Phase 2 */}
-            <div className="mb-4">
+            {/* <div className="mb-4">
               <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-green-400" />Phase 2 Question Averages</div>
               <div className="flex gap-2">
                 {courseDetail.phase2Averages.map((q, i) => (
@@ -560,7 +560,7 @@ function CourseFeedbackSection() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
             {/* Question-wise Ratings Chart (Bar) for Phase 1 */}
             <div className="mb-4">
               <div className="font-semibold mb-1 flex items-center gap-2"><Icon icon="mdi:chart-bar" className="text-lg text-(--brand)" />Phase 1 Question-wise Ratings</div>
