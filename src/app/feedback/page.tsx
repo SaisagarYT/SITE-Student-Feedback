@@ -314,12 +314,12 @@ export default function HomePage() {
       <div ref={pageRef} className="relative pb-14">
         <FeedbackHeader activePhase={activePhase} />
         {showPhase1Notice && (
-          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-green-800 text-center text-sm font-medium shadow">
+          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-[var(--brand)] bg-[rgba(10,152,146,0.08)] px-4 py-3 text-[var(--brand-deep)] text-center text-sm font-medium shadow">
             Phase 1 feedback has already been submitted. You cannot edit your responses.
           </div>
         )}
         {showPhase2Notice && (
-          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-green-800 text-center text-sm font-medium shadow">
+          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-[var(--brand)] bg-[rgba(10,152,146,0.08)] px-4 py-3 text-[var(--brand-deep)] text-center text-sm font-medium shadow">
             Phase 2 feedback has already been submitted. You cannot edit your responses.
           </div>
         )}
