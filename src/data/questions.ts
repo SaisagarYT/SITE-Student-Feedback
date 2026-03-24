@@ -25,7 +25,7 @@ export const feedbackPhases: FeedbackPhase[] = [
   {
     id: "phase1",
     title: "PHASE 1",
-    subtitle: "Before Mid-I Examination (Week 5 or 6)",
+    subtitle: "",
     helperText: "Early academic pulse check",
     textareaPrompt:
       "Please provide any one suggestion for improving the teaching-learning process.",
@@ -72,7 +72,7 @@ export const feedbackPhases: FeedbackPhase[] = [
   {
     id: "phase2",
     title: "PHASE 2",
-    subtitle: "After Mid-I Examination (Week 11 or 12)",
+    subtitle: "",
     helperText: "Post-mid review and refinement",
     textareaPrompt:
       "Kindly mention one key strength and one area for enhancement of the faculty.",

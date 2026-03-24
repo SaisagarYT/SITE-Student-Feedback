@@ -83,7 +83,7 @@ const QuestionCard = ({
           )}
         >
           <Icon icon="material-symbols:keyboard-double-arrow-right" className="text-base" />
-          {reverseScored ? "Reverse Scored" : "Standard"}
+          {/* {reverseScored ? "Reverse Scored" : null} */}
         </span>
       </div>
 

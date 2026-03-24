@@ -58,17 +58,7 @@ const SliderRating = ({ id, value: propValue, onChange, disabled = false }: Slid
   return (
     <div ref={controlRef} className="space-y-6">
       <div className="relative">
-        <div
-          ref={activeRef}
-          className={clsx(
-            "inline-flex rounded-full border px-3 py-1 text-[10px] font-medium tracking-[0.16em] uppercase shadow-[0_10px_22px_rgba(10,152,146,0.12)] sm:text-xs",
-            value === null
-              ? "border-[var(--line)] bg-[var(--surface-soft)] text-[var(--muted)]"
-              : "border-[var(--brand)] bg-[rgba(10,152,146,0.12)] text-[var(--brand-deep)]"
-          )}
-        >
-          Selected: {activeLabel}
-        </div>
+        {/* Removed Selected: {activeLabel} display as requested */}
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
