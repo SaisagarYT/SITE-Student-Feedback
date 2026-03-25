@@ -1,7 +1,13 @@
+const { getPhaseActivation, setPhaseActivation } = require("../controllers/adminController");
+// Global phase activation endpoints
 const express = require("express");
 const { getDashboardOverview, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail, getCourseAnalytics } = require("../controllers/adminController");
 
 const adminRouter = express.Router();
+
+adminRouter.get("/phase-activation", getPhaseActivation);
+
+adminRouter.post("/phase-activation", setPhaseActivation);
 
 // Course analytics endpoint
 adminRouter.get("/course-analytics", getCourseAnalytics);

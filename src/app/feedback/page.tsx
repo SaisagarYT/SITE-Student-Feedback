@@ -7,7 +7,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getCourseFaculty } from "@/api";
+import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getCourseFaculty, getPhase2Active } from "@/api";
 import gsap from "gsap";
 import { Icon } from "@iconify/react";
 import FeedbackHeader from "@/components/feedback/FeedbackHeader";
@@ -36,6 +36,23 @@ export default function HomePage() {
     phase1: { ratings: {}, remark: "" },
     phase2: { ratings: {}, remark: "" },
   });
+  const [phase2Active, setPhase2Active] = useState<boolean>(false);
+  const [phase2ActiveLoading, setPhase2ActiveLoading] = useState<boolean>(true);
+    // Fetch phase2Active flag on mount
+    useEffect(() => {
+      async function fetchPhase2Active() {
+        setPhase2ActiveLoading(true);
+        try {
+          const active = await getPhase2Active();
+          setPhase2Active(active);
+        } catch {
+          setPhase2Active(false);
+        } finally {
+          setPhase2ActiveLoading(false);
+        }
+      }
+      fetchPhase2Active();
+    }, []);
   const pageRef = useRef<HTMLDivElement>(null);
   const phaseContainerRef = useRef<HTMLDivElement>(null);
 
@@ -176,13 +193,14 @@ export default function HomePage() {
   const phase2Complete =
     Object.keys(phaseState.phase2.ratings).length === phase2QuestionCount &&
     phaseState.phase2.remark.trim().length > 0;
-  const allPhasesComplete = phase1Complete && phase2Complete;
+  // const allPhasesComplete = phase1Complete && phase2Complete; // No longer used
   const activePhaseConfig = activePhase === "phase1" ? phase1 : phase2;
   const activePhaseState = phaseState[activePhase];
   // Removed unused activeQuestionCount
   // Removed unused activePhaseTotalTasks and activePhaseCompletedTasks
   // Remove unused progressPercent if not used in JSX
   const switchPhase = (nextPhase: "phase1" | "phase2") => {
+    if (nextPhase === "phase2" && !phase2Active) return;
     if (!phaseContainerRef.current || nextPhase === activePhase) {
       setActivePhase(nextPhase);
       return;
@@ -206,8 +224,9 @@ export default function HomePage() {
       },
     });
   };
-  const handleSubmit = async () => {
-    if (!allPhasesComplete || !selectedCourse) return;
+  // Submit Phase 1 only
+  const handleSubmitPhase1 = async () => {
+    if (!phase1Complete || !selectedCourse) return;
     setIsSubmitting(true);
     const auth = getAuth();
     const user = auth.currentUser;
@@ -218,50 +237,80 @@ export default function HomePage() {
     }
     const idToken = await user.getIdToken();
     try {
-      // Build correct payload for backend
       const payload = {
         courseId: selectedCourse.courseId,
         facultyId: selectedCourse.facultyId,
         phase1: remapPhaseKeys(phaseState.phase1.ratings),
-        phase2: remapPhaseKeys(phaseState.phase2.ratings),
         phase1Remark: phaseState.phase1.remark,
-        phase2Remark: phaseState.phase2.remark,
       };
-      // Debug: Log payload and idToken before sending
-      console.log('Submitting feedback payload:', payload);
-      console.log('idToken:', idToken);
       await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
-      // Refetch feedback status after submit and sync local state
-      type FeedbackStatusResponse = {
-        submitted: boolean;
-        phase1?: { ratings?: Record<string, number>; remark?: string } | null;
-        phase2?: { ratings?: Record<string, number>; remark?: string } | null;
-        phase1Remark?: string;
-        phase2Remark?: string;
-      };
-      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken) as FeedbackStatusResponse;
-      setPhase1AlreadySubmitted(!!feedback.phase1);
-      setPhase2AlreadySubmitted(!!feedback.phase2);
-      setPhaseState((prev) => ({
-        phase1: feedback && feedback.phase1
-          ? {
-              ratings: feedback.phase1.ratings || {},
-              remark: feedback.phase1Remark || (feedback.phase1 && feedback.phase1.remark) || "",
-            }
-          : prev.phase1,
-        phase2: feedback && feedback.phase2
-          ? {
-              ratings: feedback.phase2.ratings || {},
-              remark: feedback.phase2Remark || (feedback.phase2 && feedback.phase2.remark) || "",
-            }
-          : prev.phase2,
-      }));
-      window.alert("Feedback for both phases submitted.");
+      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken);
+      if (feedback && typeof feedback === 'object' && 'phase1' in feedback) {
+        type PhaseObj = { ratings?: Record<string, number>; remark?: string };
+        type FeedbackType = { phase1?: PhaseObj | null; phase1Remark?: string };
+        const fb = feedback as FeedbackType;
+        setPhase1AlreadySubmitted(!!fb.phase1);
+        setPhaseState((prev) => ({
+          ...prev,
+          phase1: fb.phase1 && typeof fb.phase1 === 'object'
+            ? {
+                ratings: fb.phase1.ratings || {},
+                remark: fb.phase1Remark || fb.phase1.remark || "",
+              }
+            : prev.phase1,
+        }));
+      }
+      window.alert("Phase 1 feedback submitted.");
     } catch {
       setIsSubmitting(false);
-      window.alert("Failed to submit feedback. Please try again.");
+      window.alert("Failed to submit Phase 1 feedback. Please try again.");
+    }
+  };
+
+  // Submit Phase 2 only
+  const handleSubmitPhase2 = async () => {
+    if (!phase2Complete || !selectedCourse) return;
+    setIsSubmitting(true);
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) {
+      setIsSubmitting(false);
+      window.alert("You must be signed in to submit feedback.");
+      return;
+    }
+    const idToken = await user.getIdToken();
+    try {
+      const payload = {
+        courseId: selectedCourse.courseId,
+        facultyId: selectedCourse.facultyId,
+        phase2: remapPhaseKeys(phaseState.phase2.ratings),
+        phase2Remark: phaseState.phase2.remark,
+      };
+      await submitStudentFeedback(payload, idToken);
+      setIsSubmitting(false);
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken);
+      if (feedback && typeof feedback === 'object' && 'phase2' in feedback) {
+        type PhaseObj = { ratings?: Record<string, number>; remark?: string };
+        type FeedbackType = { phase2?: PhaseObj | null; phase2Remark?: string };
+        const fb = feedback as FeedbackType;
+        setPhase2AlreadySubmitted(!!fb.phase2);
+        setPhaseState((prev) => ({
+          ...prev,
+          phase2: fb.phase2 && typeof fb.phase2 === 'object'
+            ? {
+                ratings: fb.phase2.ratings || {},
+                remark: fb.phase2Remark || fb.phase2.remark || "",
+              }
+            : prev.phase2,
+        }));
+      }
+      window.alert("Phase 2 feedback submitted.");
+    } catch {
+      setIsSubmitting(false);
+      window.alert("Failed to submit Phase 2 feedback. Please try again.");
     }
   };
   // Helper to remap keys for backend
@@ -293,7 +342,7 @@ export default function HomePage() {
     return () => context.revert();
   }, []);
   // --- End move ---
-  if (!authChecked) {
+  if (!authChecked || phase2ActiveLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-(--page)"><span className="text-lg text-(--muted)">Loading...</span></div>
     );
@@ -304,6 +353,7 @@ export default function HomePage() {
   // Add a notice for phase completion (move inside HomePage before return)
   const showPhase1Notice = phase1AlreadySubmitted && activePhase === "phase1";
   const showPhase2Notice = phase2AlreadySubmitted && activePhase === "phase2";
+  const showPhase2InactiveNotice = !phase2Active && activePhase === "phase2";
   return (
     <main className="relative min-h-screen overflow-x-clip bg-(--page) text-(--ink)">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -314,13 +364,18 @@ export default function HomePage() {
       <div ref={pageRef} className="relative pb-14">
         <FeedbackHeader activePhase={activePhase} />
         {showPhase1Notice && (
-          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-[var(--brand)] bg-[rgba(10,152,146,0.08)] px-4 py-3 text-[var(--brand-deep)] text-center text-sm font-medium shadow">
+          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-(--brand) bg-[rgba(10,152,146,0.08)] px-4 py-3 text-(--brand-deep) text-center text-sm font-medium shadow">
             Phase 1 feedback has already been submitted. You cannot edit your responses.
           </div>
         )}
         {showPhase2Notice && (
-          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-[var(--brand)] bg-[rgba(10,152,146,0.08)] px-4 py-3 text-[var(--brand-deep)] text-center text-sm font-medium shadow">
+          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-(--brand) bg-[rgba(10,152,146,0.08)] px-4 py-3 text-(--brand-deep) text-center text-sm font-medium shadow">
             Phase 2 feedback has already been submitted. You cannot edit your responses.
+          </div>
+        )}
+        {showPhase2InactiveNotice && (
+          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-yellow-400 bg-yellow-50 px-4 py-3 text-yellow-900 text-center text-sm font-medium shadow">
+            Phase 2 is currently disabled by the administrator. You may only submit Phase 1 feedback at this time.
           </div>
         )}
         <section className="bg-[linear-gradient(180deg,var(--brand)_0%,var(--brand-deep)_100%)] py-10 sm:py-14">
@@ -381,7 +436,7 @@ export default function HomePage() {
                       className="w-full appearance-none rounded-2xl border border-white/20 bg-white/14 px-4 py-3 pr-11 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] outline-none transition focus:border-white/50 focus:bg-white/18 focus:ring-2 focus:ring-white/18"
                     >
                       <option value="phase1" className="text-(--ink)">Phase 1 - Pre Mid-I review</option>
-                      <option value="phase2" className="text-(--ink)">Phase 2 - Post Mid-I review</option>
+                      <option value="phase2" className="text-(--ink)" disabled={!phase2Active}>Phase 2 - Post Mid-I review</option>
                     </select>
                     <span className="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-white/78">
                       <Icon icon="material-symbols:keyboard-arrow-down-rounded" className="text-2xl" />
@@ -391,11 +446,17 @@ export default function HomePage() {
                 <div className="space-y-3 px-5 py-5 sm:px-6">
                   <div className="grid grid-cols-2 border-t border-white/14 bg-[rgba(6,92,89,0.28)]">
                     <div className="px-5 py-4 text-white sm:px-6">
-                      <p className="text-3xl font-semibold">{Object.keys(activePhaseState.ratings).length}</p>
+                      <p className="text-3xl font-semibold">
+                        {Object.keys(activePhaseState.ratings).length}
+                        /
+                        {activePhaseConfig.questions.length}
+                      </p>
                       <p className="text-xs uppercase tracking-[0.16em] text-white/72">Rated now</p>
                     </div>
                     <div className="border-l border-white/12 px-5 py-4 text-white sm:px-6">
-                      <p className="text-3xl font-semibold">{activePhaseState.remark.trim() ? 1 : 0}</p>
+                      <p className="text-3xl font-semibold">
+                        {activePhaseState.remark.trim() ? 1 : 0}/1
+                      </p>
                       <p className="text-xs uppercase tracking-[0.16em] text-white/72">Remarks added</p>
                     </div>
                   </div>
@@ -436,39 +497,42 @@ export default function HomePage() {
                 <div>
                   <p className="text-xs font-semibold tracking-[0.22em] text-(--muted) uppercase">Navigation</p>
                   <p className="mt-2 text-sm text-(--muted)">
-                    Please answer all questions in both phases and provide remarks. Submit once both phases are complete.
+                    Please answer all questions in each phase and provide remarks. Submit each phase separately when complete.
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-                  {/* Stepper/Checklist UI */}
-                  <div className="flex flex-col gap-1 sm:flex-row sm:gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold ${phase1Complete ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 bg-white text-gray-500'}`}>{phase1Complete ? <Icon icon="mdi:check" /> : 1}</span>
-                      <span className={`text-sm font-medium ${phase1Complete ? 'text-green-700' : 'text-gray-700'}`}>Phase 1</span>
-                    </div>
-                    <span className="hidden sm:inline-block text-gray-400">→</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold ${phase2Complete ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 bg-white text-gray-500'}`}>{phase2Complete ? <Icon icon="mdi:check" /> : 2}</span>
-                      <span className={`text-sm font-medium ${phase2Complete ? 'text-green-700' : 'text-gray-700'}`}>Phase 2</span>
-                    </div>
+                  {/* Removed stepper/checklist UI as requested */}
+                  {/* Only show one submit button for the active phase */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                    {activePhase === "phase1" && (
+                      <button
+                        type="button"
+                        onClick={handleSubmitPhase1}
+                        disabled={!phase1Complete || isSubmitting || phase1Locked}
+                        className={
+                          !phase1Complete || isSubmitting || phase1Locked
+                            ? "cursor-not-allowed rounded-full bg-(--accent-soft) px-6 py-3 text-sm font-semibold text-white/70"
+                            : "rounded-full bg-(--accent) px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_36px_rgba(239,42,113,0.32)] transition hover:bg-(--accent-deep)"
+                        }
+                      >
+                        {phase1Locked ? "Submitted" : (isSubmitting ? "Submitting..." : "Submit")}
+                      </button>
+                    )}
+                    {activePhase === "phase2" && (
+                      <button
+                        type="button"
+                        onClick={handleSubmitPhase2}
+                        disabled={!phase2Active || !phase2Complete || isSubmitting || phase2Locked}
+                        className={
+                          !phase2Active || !phase2Complete || isSubmitting || phase2Locked
+                            ? "cursor-not-allowed rounded-full bg-yellow-200 px-6 py-3 text-sm font-semibold text-yellow-900/70"
+                            : "rounded-full bg-yellow-400 px-6 py-3 text-sm font-semibold text-yellow-900 shadow-[0_18px_36px_rgba(239,42,113,0.12)] transition hover:bg-yellow-500"
+                        }
+                      >
+                        {phase2Locked ? "Submitted" : (isSubmitting ? "Submitting..." : "Submit")}
+                      </button>
+                    )}
                   </div>
-                  {/* Button only enabled when both phases complete */}
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={
-                      !allPhasesComplete || isSubmitting || phase1Locked || phase2Locked
-                    }
-                    className={
-                      !allPhasesComplete || isSubmitting || phase1Locked || phase2Locked
-                        ? "cursor-not-allowed rounded-full bg-(--accent-soft) px-6 py-3 text-sm font-semibold text-white/70"
-                        : "rounded-full bg-(--accent) px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_36px_rgba(239,42,113,0.32)] transition hover:bg-(--accent-deep)"
-                    }
-                  >
-                    {allPhasesComplete
-                      ? (isSubmitting ? "Submitting..." : "Submit All Feedback")
-                      : (!phase1Complete ? "Fill Phase 1" : "Fill Phase 2")}
-                  </button>
                 </div>
               </div>
             </div>

@@ -7,7 +7,6 @@ const facultyRouter = require("./routes/facultyRoutes");
 
 const app = express();
 
-
 app.use(express.json());
 app.use("/", feedbackRouter);
 app.use("/api/student", studentRouter);

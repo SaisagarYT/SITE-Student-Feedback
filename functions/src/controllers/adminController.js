@@ -1,3 +1,35 @@
+// --- Global Phase Activation ---
+// GET /api/admin/phase-activation
+async function getPhaseActivation(req, res) {
+  try {
+    const doc = await db.collection("settings").doc("feedbackPhases").get();
+    if (!doc.exists) {
+      return res.status(200).json({ phase2Active: false });
+    }
+    const data = doc.data();
+    return res.status(200).json({ phase2Active: !!data.phase2Active });
+  } catch (error) {
+    console.error("Get phase activation error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+// POST /api/admin/phase-activation { phase2Active: true/false }
+async function setPhaseActivation(req, res) {
+  try {
+    const { phase2Active } = req.body;
+    if (typeof phase2Active !== "boolean") {
+      return res.status(400).json({ error: "phase2Active must be boolean" });
+    }
+    await db.collection("settings").doc("feedbackPhases").set({ phase2Active }, { merge: true });
+    return res.status(200).json({ phase2Active });
+  } catch (error) {
+    console.error("Set phase activation error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+module.exports.getPhaseActivation = getPhaseActivation;
+module.exports.setPhaseActivation = setPhaseActivation;
 // GET /api/admin/course-analytics
 // Returns: [{ courseId, courseName, facultyName, responses, avgRating }]
 // Supports filters: ?courseId=...&facultyId=...
@@ -443,4 +475,13 @@ async function loginAdmin(req, res) {
   }
 }
 
-module.exports = { getDashboardOverview, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail, getCourseAnalytics };
+module.exports = {
+  getDashboardOverview,
+  loginAdmin,
+  logoutAdmin,
+  getFacultyPerformance,
+  getFacultyDetail,
+  getCourseAnalytics,
+  getPhaseActivation,
+  setPhaseActivation
+};

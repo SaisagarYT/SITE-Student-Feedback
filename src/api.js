@@ -1,4 +1,14 @@
 /**
+ * Fetch the global phase2Active flag (admin or student)
+ * @returns {Promise<boolean>} true if phase2 is active, false otherwise
+ */
+export async function getPhase2Active() {
+  const response = await fetch(`${BASE_URL}/api/admin/phase-activation`);
+  if (!response.ok) throw new Error("Failed to fetch phase2Active");
+  const data = await response.json();
+  return !!data.phase2Active;
+}
+/**
  * Get course analytics (admin)
  * @param {object} filters - Optional filters: { courseId, facultyId }
  * @returns {Promise<Array>} Array of course analytics objects

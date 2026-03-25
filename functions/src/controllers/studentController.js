@@ -8,8 +8,8 @@ const { db } = require("../config/firebase");
 exports.submitFeedback = async (req, res) => {
   try {
     const idToken = req.headers["authorization"]?.replace("Bearer ", "") || req.body.idToken;
-    const { courseId, facultyId, phase1, phase2 } = req.body;
-    if (!idToken || !courseId || !facultyId || !phase1 || !phase2) {
+    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark } = req.body;
+    if (!idToken || !courseId || !facultyId) {
       return res.status(400).json({ error: "Missing required fields" });
     }
     // Get studentId from token
@@ -23,46 +23,62 @@ exports.submitFeedback = async (req, res) => {
 
     // Generate feedbackId
     const feedbackId = `${studentId}_${courseId}`;
-
-    // Check duplicate
-    const feedbackDoc = await db.collection("feedback").doc(feedbackId).get();
-    if (feedbackDoc.exists) {
-      return res.status(409).json({ error: "Feedback already submitted for this course" });
-    }
-
-    // Validate answers (basic: all questions present and are numbers)
-    const validatePhase = (phase, count) => {
-      if (!phase || typeof phase !== "object") return false;
-      for (let i = 1; i <= count; i++) {
-        const key = `q${i}`;
-        if (!(key in phase) || typeof phase[key] !== "number") return false;
-      }
-      return true;
-    };
-    if (!validatePhase(phase1, 9) || !validatePhase(phase2, 11)) {
-      return res.status(400).json({ error: "Invalid answers format" });
-    }
-
-    // Attach remarks to each phase if provided
-    const { phase1Remark, phase2Remark } = req.body;
-    const phase1WithRemark = { ...phase1 };
-    const phase2WithRemark = { ...phase2 };
-    if (typeof phase1Remark === "string") phase1WithRemark.remark = phase1Remark;
-    if (typeof phase2Remark === "string") phase2WithRemark.remark = phase2Remark;
-
-    // Also store remarks as top-level fields for direct access (optional, for compatibility with frontend payload)
-    const feedbackData = {
+    const feedbackRef = db.collection("feedback").doc(feedbackId);
+    const feedbackDoc = await feedbackRef.get();
+    let feedbackData = feedbackDoc.exists ? feedbackDoc.data() : {
       feedbackId,
       studentId,
       courseId,
       facultyId,
-      phase1: phase1WithRemark,
-      phase2: phase2WithRemark,
-      phase1Remark: typeof phase1Remark === "string" ? phase1Remark : undefined,
-      phase2Remark: typeof phase2Remark === "string" ? phase2Remark : undefined,
       submittedAt: new Date().toISOString()
     };
-    await db.collection("feedback").doc(feedbackId).set(feedbackData);
+
+    // --- PHASE 1 SUBMISSION ---
+    if (phase1) {
+      // Validate answers
+      const validatePhase = (phase, count) => {
+        if (!phase || typeof phase !== "object") return false;
+        for (let i = 1; i <= count; i++) {
+          const key = `q${i}`;
+          if (!(key in phase) || typeof phase[key] !== "number") return false;
+        }
+        return true;
+      };
+      if (!validatePhase(phase1, 9)) {
+        return res.status(400).json({ error: "Invalid phase1 answers format" });
+      }
+      const phase1WithRemark = { ...phase1 };
+      if (typeof phase1Remark === "string") phase1WithRemark.remark = phase1Remark;
+      feedbackData.phase1 = phase1WithRemark;
+      feedbackData.phase1Remark = typeof phase1Remark === "string" ? phase1Remark : undefined;
+    }
+
+    // --- PHASE 2 SUBMISSION ---
+    if (phase2) {
+      // Validate answers
+      const validatePhase = (phase, count) => {
+        if (!phase || typeof phase !== "object") return false;
+        for (let i = 1; i <= count; i++) {
+          const key = `q${i}`;
+          if (!(key in phase) || typeof phase[key] !== "number") return false;
+        }
+        return true;
+      };
+      if (!validatePhase(phase2, 11)) {
+        return res.status(400).json({ error: "Invalid phase2 answers format" });
+      }
+      const phase2WithRemark = { ...phase2 };
+      if (typeof phase2Remark === "string") phase2WithRemark.remark = phase2Remark;
+      feedbackData.phase2 = phase2WithRemark;
+      feedbackData.phase2Remark = typeof phase2Remark === "string" ? phase2Remark : undefined;
+    }
+
+    // At least one phase must be present
+    if (!feedbackData.phase1 && !feedbackData.phase2) {
+      return res.status(400).json({ error: "No phase data to submit." });
+    }
+
+    await feedbackRef.set(feedbackData);
     return res.status(201).json({ submitted: true });
   } catch (error) {
     console.error("Submit feedback error:", error);
