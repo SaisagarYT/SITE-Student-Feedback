@@ -163,16 +163,13 @@ export default function HomePage() {
         if (user) {
           idToken = await user.getIdToken();
         }
-        console.log('getStudentCourses idToken:', idToken);
         const response: any = await getStudentCourses(idToken);
-        console.log('getStudentCourses response:', response);
         let courseList: Array<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> }> = [];
         if (Array.isArray(response)) {
           courseList = response;
         } else if (response && Array.isArray(response.courses)) {
           courseList = response.courses;
         }
-        console.log('getStudentCourses courseList:', courseList);
         setCourses(courseList);
         setSelectedCourse(courseList.length > 0 ? courseList[0] : null);
         setSelectedFaculty(courseList.length > 0 && courseList[0].faculties.length > 0 ? courseList[0].faculties[0] : null);
@@ -193,7 +190,6 @@ export default function HomePage() {
     if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
     // Faculty is now part of selectedCourse
     setFacultyLoading(false);
-    console.log('getCourseFaculty (from selectedCourse):', selectedCourse.faculties);
     // Fetch feedback
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
