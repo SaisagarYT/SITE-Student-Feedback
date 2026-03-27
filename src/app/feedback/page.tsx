@@ -1,13 +1,29 @@
+"use client";
+// Helper to extract ratings from phase object
+function extractRatings(phaseObj: unknown): Record<string, number> {
+  if (!phaseObj) return {};
+  const ratings: Record<string, number> = {};
+  Object.entries(phaseObj as object).forEach(([k, v]) => {
+    if (/^q\d+$/.test(k) && typeof v === 'number') ratings[k] = v;
+  });
+  return ratings;
+}
 // DEBUG: Confirm component is mounting
-  
-  "use client";
-  // Fetch feedback status from backend on mount
-  // ...removed debug log...
+// Fetch feedback status from backend on mount
+// ...removed debug log...
 // Move these hooks inside the HomePage component
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+type FeedbackStatusResponse = {
+  submitted: boolean;
+  phase1?: { [key: string]: number | string } | null;
+  phase2?: { [key: string]: number | string } | null;
+  phase1Remark?: string;
+  phase2Remark?: string;
+};
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getCourseFaculty, getPhase2Active } from "@/api";
+import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getPhase2Active } from "@/api";
 import gsap from "gsap";
 import { Icon } from "@iconify/react";
 import FeedbackHeader from "@/components/feedback/FeedbackHeader";
@@ -22,12 +38,11 @@ type PhaseProgressState = {
 
 export default function HomePage() {
   // All state hooks at the top
-  const [faculty, setFaculty] = useState<{
-    email?: string; facultyId: string; facultyName: string; subjectId: string; designation: string 
-  } | null>(null);
+  // Faculty is now selected from course.faculties
   const [facultyLoading, setFacultyLoading] = useState(false);
-  const [courses, setCourses] = useState<Array<{ courseId: string; courseName: string; facultyId: string }>>([]);
-  const [selectedCourse, setSelectedCourse] = useState<{ courseId: string; courseName: string; facultyId: string } | null>(null);
+  const [courses, setCourses] = useState<Array<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> }>>([]);
+  const [selectedCourse, setSelectedCourse] = useState<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> } | null>(null);
+  const [selectedFaculty, setSelectedFaculty] = useState<{ facultyId: string; facultyName: string; email?: string; designation?: string } | null>(null);
   const [phase1AlreadySubmitted, setPhase1AlreadySubmitted] = useState(false);
   const [phase2AlreadySubmitted, setPhase2AlreadySubmitted] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -38,6 +53,60 @@ export default function HomePage() {
   });
   const [phase2Active, setPhase2Active] = useState<boolean>(false);
   const [phase2ActiveLoading, setPhase2ActiveLoading] = useState<boolean>(true);
+      // Re-fetch feedback status when selectedFaculty changes
+      useEffect(() => {
+        if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
+        // Fetch feedback for the selected course and faculty
+        (async () => {
+          try {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; token=`);
+            const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
+            const feedback = await getStudentFeedbackByCourse(
+              selectedCourse.courseId,
+              selectedFaculty?.facultyId,
+              token
+            )
+            const fb = feedback as FeedbackStatusResponse;
+            if (fb && fb.submitted) {
+              const extractRatings = (phaseObj: unknown) => {
+                if (!phaseObj) return {};
+                const ratings: Record<string, number> = {};
+                Object.entries(phaseObj).forEach(([k, v]) => {
+                  if (/^q\d+$/.test(k) && typeof v === 'number') ratings[k] = v;
+                });
+                return ratings;
+              };
+              setPhaseState({
+                phase1: {
+                  ratings: extractRatings(fb.phase1),
+                  remark: fb.phase1Remark || (fb.phase1 && typeof fb.phase1 === 'object' && 'remark' in fb.phase1 ? (fb.phase1.remark as string) : ""),
+                },
+                phase2: {
+                  ratings: extractRatings(fb.phase2),
+                  remark: fb.phase2Remark || (fb.phase2 && typeof fb.phase2 === 'object' && 'remark' in fb.phase2 ? (fb.phase2.remark as string) : ""),
+                },
+              });
+              setPhase1AlreadySubmitted(!!fb.phase1);
+              setPhase2AlreadySubmitted(!!fb.phase2);
+            } else {
+              setPhase1AlreadySubmitted(false);
+              setPhase2AlreadySubmitted(false);
+              setPhaseState({
+                phase1: { ratings: {}, remark: "" },
+                phase2: { ratings: {}, remark: "" },
+              });
+            }
+          } catch {
+            setPhase1AlreadySubmitted(false);
+            setPhase2AlreadySubmitted(false);
+            setPhaseState({
+              phase1: { ratings: {}, remark: "" },
+              phase2: { ratings: {}, remark: "" },
+            });
+          }
+        })();
+      }, [authChecked, isAuthed, selectedCourse, selectedFaculty]);
     // Fetch phase2Active flag on mount
     useEffect(() => {
       async function fetchPhase2Active() {
@@ -94,10 +163,21 @@ export default function HomePage() {
         if (user) {
           idToken = await user.getIdToken();
         }
-        const courseList = await getStudentCourses(idToken);
+        console.log('getStudentCourses idToken:', idToken);
+        const response: any = await getStudentCourses(idToken);
+        console.log('getStudentCourses response:', response);
+        let courseList: Array<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> }> = [];
+        if (Array.isArray(response)) {
+          courseList = response;
+        } else if (response && Array.isArray(response.courses)) {
+          courseList = response.courses;
+        }
+        console.log('getStudentCourses courseList:', courseList);
         setCourses(courseList);
         setSelectedCourse(courseList.length > 0 ? courseList[0] : null);
-      } catch {
+        setSelectedFaculty(courseList.length > 0 && courseList[0].faculties.length > 0 ? courseList[0].faculties[0] : null);
+      } catch (err) {
+        console.error('getStudentCourses error:', err);
         setCourses([]);
         setSelectedCourse(null);
       }
@@ -110,15 +190,10 @@ export default function HomePage() {
   // Update feedback fetching to depend on selectedCourseId
   // Fetch feedback and faculty info when course changes
   useEffect(() => {
-    if (!authChecked || !isAuthed || !selectedCourse) return;
-    // Fetch faculty info
-    Promise.resolve().then(() => setFacultyLoading(true));
-    getCourseFaculty(selectedCourse.courseId)
-      .then((data) => setFaculty(data as { email?: string; facultyId: string; facultyName: string; subjectId: string; designation: string }))
-      .catch(() => {
-        setFaculty(null);
-      })
-      .finally(() => setFacultyLoading(false));
+    if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
+    // Faculty is now part of selectedCourse
+    setFacultyLoading(false);
+    console.log('getCourseFaculty (from selectedCourse):', selectedCourse.faculties);
     // Fetch feedback
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -135,7 +210,11 @@ export default function HomePage() {
           phase1Remark?: string;
           phase2Remark?: string;
         };
-        const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, token) as FeedbackStatusResponse;
+        const feedback = await getStudentFeedbackByCourse(
+          selectedCourse.courseId,
+          selectedFaculty?.facultyId,
+          token
+        ) as FeedbackStatusResponse;
         if (feedback && feedback.submitted) {
           // Extract only q1, q2, ... keys for ratings
           const extractRatings = (phaseObj: unknown) => {
@@ -176,7 +255,16 @@ export default function HomePage() {
       }
     });
     return () => unsubscribe();
-  }, [authChecked, isAuthed, selectedCourse]);
+  }, [authChecked, isAuthed, selectedCourse, selectedFaculty]);
+// Reset state when faculty changes
+useEffect(() => {
+  setPhase1AlreadySubmitted(false);
+  setPhase2AlreadySubmitted(false);
+  setPhaseState({
+    phase1: { ratings: {}, remark: "" },
+    phase2: { ratings: {}, remark: "" },
+  });
+}, [selectedFaculty]);
 
 
   const [activePhase, setActivePhase] = useState<"phase1" | "phase2">("phase1");
@@ -239,28 +327,28 @@ export default function HomePage() {
     try {
       const payload = {
         courseId: selectedCourse.courseId,
-        facultyId: selectedCourse.facultyId,
+        facultyId: selectedFaculty?.facultyId,
         phase1: remapPhaseKeys(phaseState.phase1.ratings),
         phase1Remark: phaseState.phase1.remark,
       };
       await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
-      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken);
-      if (feedback && typeof feedback === 'object' && 'phase1' in feedback) {
-        type PhaseObj = { ratings?: Record<string, number>; remark?: string };
-        type FeedbackType = { phase1?: PhaseObj | null; phase1Remark?: string };
-        const fb = feedback as FeedbackType;
-        setPhase1AlreadySubmitted(!!fb.phase1);
-        setPhaseState((prev) => ({
-          ...prev,
-          phase1: fb.phase1 && typeof fb.phase1 === 'object'
-            ? {
-                ratings: fb.phase1.ratings || {},
-                remark: fb.phase1Remark || fb.phase1.remark || "",
-              }
-            : prev.phase1,
-        }));
+      const facultyId = selectedFaculty?.facultyId || "";
+      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, facultyId, idToken) as FeedbackStatusResponse;
+      if (feedback) {
+        setPhaseState({
+          phase1: {
+            ratings: extractRatings(feedback.phase1),
+            remark: feedback.phase1Remark || (feedback.phase1 && typeof feedback.phase1 === 'object' && 'remark' in feedback.phase1 ? (feedback.phase1.remark as string) : ""),
+          },
+          phase2: {
+            ratings: extractRatings(feedback.phase2),
+            remark: feedback.phase2Remark || (feedback.phase2 && typeof feedback.phase2 === 'object' && 'remark' in feedback.phase2 ? (feedback.phase2.remark as string) : ""),
+          },
+        });
+        setPhase1AlreadySubmitted(!!feedback.phase1);
+        setPhase2AlreadySubmitted(!!feedback.phase2);
       }
       window.alert("Phase 1 feedback submitted.");
     } catch {
@@ -284,28 +372,28 @@ export default function HomePage() {
     try {
       const payload = {
         courseId: selectedCourse.courseId,
-        facultyId: selectedCourse.facultyId,
+        facultyId: selectedFaculty?.facultyId,
         phase2: remapPhaseKeys(phaseState.phase2.ratings),
         phase2Remark: phaseState.phase2.remark,
       };
       await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
-      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, idToken);
-      if (feedback && typeof feedback === 'object' && 'phase2' in feedback) {
-        type PhaseObj = { ratings?: Record<string, number>; remark?: string };
-        type FeedbackType = { phase2?: PhaseObj | null; phase2Remark?: string };
-        const fb = feedback as FeedbackType;
-        setPhase2AlreadySubmitted(!!fb.phase2);
-        setPhaseState((prev) => ({
-          ...prev,
-          phase2: fb.phase2 && typeof fb.phase2 === 'object'
-            ? {
-                ratings: fb.phase2.ratings || {},
-                remark: fb.phase2Remark || fb.phase2.remark || "",
-              }
-            : prev.phase2,
-        }));
+      const facultyId = selectedFaculty?.facultyId || "";
+      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, facultyId, idToken) as FeedbackStatusResponse;
+      if (feedback) {
+        setPhaseState({
+          phase1: {
+            ratings: extractRatings(feedback.phase1),
+            remark: feedback.phase1Remark || (feedback.phase1 && typeof feedback.phase1 === 'object' && 'remark' in feedback.phase1 ? (feedback.phase1.remark as string) : ""),
+          },
+          phase2: {
+            ratings: extractRatings(feedback.phase2),
+            remark: feedback.phase2Remark || (feedback.phase2 && typeof feedback.phase2 === 'object' && 'remark' in feedback.phase2 ? (feedback.phase2.remark as string) : ""),
+          },
+        });
+        setPhase1AlreadySubmitted(!!feedback.phase1);
+        setPhase2AlreadySubmitted(!!feedback.phase2);
       }
       window.alert("Phase 2 feedback submitted.");
     } catch {
@@ -410,18 +498,32 @@ export default function HomePage() {
                   {/* Faculty info display */}
                   <div className="mb-2">
                     {facultyLoading && <span className="text-base text-white/80">Loading faculty...</span>}
-                    {!facultyLoading && faculty && (
-                      <div className="block text-base text-white/90 leading-snug">
-                        <div>
-                          Faculty: <span className="font-bold text-lg">{faculty.facultyName}</span>
-                          {faculty.designation && <span className="ml-2 text-sm text-white/70">({faculty.designation})</span>}
-                        </div>
-                        {faculty.email && (
-                          <div className="text-sm text-white/80 mt-1">Email: <span className="font-medium">{faculty.email}</span></div>
+                    {!facultyLoading && selectedCourse && selectedCourse.faculties.length > 0 && (
+                      <>
+                        <label htmlFor="faculty-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
+                          Select faculty
+                        </label>
+                        <select
+                          id="faculty-select"
+                          value={selectedFaculty?.facultyId || ""}
+                          onChange={e => {
+                            const faculty = selectedCourse.faculties.find(f => f.facultyId === e.target.value) || null;
+                            setSelectedFaculty(faculty);
+                          }}
+                          className="w-full appearance-none rounded-2xl border border-white/20 bg-white/14 px-4 py-3 pr-11 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] outline-none transition focus:border-white/50 focus:bg-white/18 focus:ring-2 focus:ring-white/18"
+                        >
+                          {selectedCourse.faculties.map(faculty => (
+                            <option key={faculty.facultyId} value={faculty.facultyId} className="text-(--ink)">
+                              {faculty.facultyName} {faculty.designation ? `(${faculty.designation})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedFaculty && selectedFaculty.email && (
+                          <div className="text-sm text-white/80 mt-1">Email: <span className="font-medium">{selectedFaculty.email}</span></div>
                         )}
-                      </div>
+                      </>
                     )}
-                    {!facultyLoading && !faculty && (
+                    {!facultyLoading && selectedCourse && selectedCourse.faculties.length === 0 && (
                       <span className="block text-base text-white/80">No faculty assigned.</span>
                     )}
                   </div>

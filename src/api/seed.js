@@ -61,17 +61,17 @@ const csvDir = path.join(__dirname, "../csv");
 const collections = [
   {
     name: "students",
-    file: "student_mock_data.csv",
+    file: "student.csv",
     idField: "studentId"
   },
   {
     name: "faculties",
-    file: "faculty_mock_data.csv",
+    file: "faculty.csv",
     idField: "facultyId"
   },
   {
     name: "courses",
-    file: "courses_mock_data.csv",
+    file: "course.csv",
     idField: "courseId"
   }
 ];
@@ -80,46 +80,73 @@ const collections = [
 /* Import CSV into Firestore */
 /* -------------------------------- */
 
+
+function transformData(collectionName, row) {
+  switch (collectionName) {
+    case "students":
+      return {
+        studentId: row["Roll Number"],
+        rollNumber: row["Roll Number"],
+        name: row["Name"],
+        email: row["Email"],
+        branchId: row["Branch Id"],
+        section: row["Section"],
+        semester: row["Semester"]
+      };
+    case "faculties":
+      return {
+        facultyId: row["Faculty Id"],
+        facultyName: row["FacultyName"],
+        email: row["Email"],
+        designation: row["Designation"],
+        branchId: row["Branch Id"],
+        subjectId: row["Subject Id"]
+      };
+    case "courses":
+      return {
+        courseId: row["Course Id"],
+        courseName: row["Course Name"],
+        branchId: row["Branch Id"],
+        facultyId: row["Faculty Id"],
+        semester: row["Semester"],
+        credits: Number(row["Credits"])
+      };
+    default:
+      return row;
+  }
+}
+
 function importCollection({ name, file, idField }) {
   return new Promise((resolve, reject) => {
-
     const results = [];
     const filePath = path.join(csvDir, file);
-
     if (!fs.existsSync(filePath)) {
       console.error(`CSV file not found: ${filePath}`);
       return reject();
     }
-
     fs.createReadStream(filePath)
       .pipe(csv())
       .on("data", (data) => results.push(data))
-
       .on("end", async () => {
-
         console.log(`Importing ${results.length} records into ${name}...`);
-
+        const batch = db.batch();
         for (const row of results) {
-
           try {
-
-            const docId = row[idField];
-
-            if (docId) {
-              await db.collection(name).doc(docId).set(row, { merge: true });
-            } else {
-              await db.collection(name).add(row);
-            }
-
+            // Map and convert types
+            const cleanData = transformData(name, row);
+            const docId = cleanData[idField];
+            if (!docId) continue;
+            const ref = db.collection(name).doc(docId);
+            batch.set(ref, cleanData, { merge: true });
           } catch (err) {
-            console.error(`Error inserting into ${name}:`, err);
+            console.error(`Error processing ${name}:`, err);
           }
         }
+        await batch.commit();
         console.log(`Finished importing ${name}`);
         resolve();
       })
       .on("error", reject);
-
   });
 }
 

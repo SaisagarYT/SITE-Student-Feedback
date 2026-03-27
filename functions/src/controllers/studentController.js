@@ -7,81 +7,88 @@ const { db } = require("../config/firebase");
  */
 exports.submitFeedback = async (req, res) => {
   try {
-    const idToken = req.headers["authorization"]?.replace("Bearer ", "") || req.body.idToken;
-    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark } = req.body;
+    const idToken =
+      req.headers["authorization"]?.replace("Bearer ", "") ||
+      req.body.idToken;
+
+    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark } =
+      req.body;
+
     if (!idToken || !courseId || !facultyId) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    // Get studentId from token
+
+    // Get student
     const decodedToken = await getAuth().verifyIdToken(idToken);
     const email = decodedToken.email;
-    if (!email) return res.status(400).json({ error: "Invalid token: no email" });
-    const studentSnap = await db.collection("students").where("email", "==", email).limit(1).get();
-    if (studentSnap.empty) return res.status(404).json({ error: "Student not found" });
-    const studentId = studentSnap.docs[0].data().studentId;
-    if (!studentId) return res.status(400).json({ error: "StudentId not found" });
 
-    // Generate feedbackId
-    const feedbackId = `${studentId}_${courseId}`;
+    const studentSnap = await db
+      .collection("students")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (studentSnap.empty) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    const studentId = studentSnap.docs[0].data().studentId;
+
+    // ✅ FIXED: include facultyId
+    const feedbackId = `${studentId}_${courseId}_${facultyId}`;
+
     const feedbackRef = db.collection("feedback").doc(feedbackId);
     const feedbackDoc = await feedbackRef.get();
-    let feedbackData = feedbackDoc.exists ? feedbackDoc.data() : {
-      feedbackId,
-      studentId,
-      courseId,
-      facultyId,
-      submittedAt: new Date().toISOString()
+
+    let feedbackData = feedbackDoc.exists
+      ? feedbackDoc.data()
+      : {
+          feedbackId,
+          studentId,
+          courseId,
+          facultyId,
+          submittedAt: new Date().toISOString(),
+        };
+
+    // Validate helper
+    const validatePhase = (phase, count) => {
+      if (!phase || typeof phase !== "object") return false;
+      for (let i = 1; i <= count; i++) {
+        const key = `q${i}`;
+        if (!(key in phase) || typeof phase[key] !== "number") return false;
+      }
+      return true;
     };
 
-    // --- PHASE 1 SUBMISSION ---
+    // Phase 1
     if (phase1) {
-      // Validate answers
-      const validatePhase = (phase, count) => {
-        if (!phase || typeof phase !== "object") return false;
-        for (let i = 1; i <= count; i++) {
-          const key = `q${i}`;
-          if (!(key in phase) || typeof phase[key] !== "number") return false;
-        }
-        return true;
-      };
       if (!validatePhase(phase1, 9)) {
-        return res.status(400).json({ error: "Invalid phase1 answers format" });
+        return res.status(400).json({ error: "Invalid phase1" });
       }
-      const phase1WithRemark = { ...phase1 };
-      if (typeof phase1Remark === "string") phase1WithRemark.remark = phase1Remark;
-      feedbackData.phase1 = phase1WithRemark;
-      feedbackData.phase1Remark = typeof phase1Remark === "string" ? phase1Remark : undefined;
-    }
 
-    // --- PHASE 2 SUBMISSION ---
-    if (phase2) {
-      // Validate answers
-      const validatePhase = (phase, count) => {
-        if (!phase || typeof phase !== "object") return false;
-        for (let i = 1; i <= count; i++) {
-          const key = `q${i}`;
-          if (!(key in phase) || typeof phase[key] !== "number") return false;
-        }
-        return true;
+      feedbackData.phase1 = {
+        ...phase1,
+        remark: phase1Remark || "",
       };
-      if (!validatePhase(phase2, 11)) {
-        return res.status(400).json({ error: "Invalid phase2 answers format" });
-      }
-      const phase2WithRemark = { ...phase2 };
-      if (typeof phase2Remark === "string") phase2WithRemark.remark = phase2Remark;
-      feedbackData.phase2 = phase2WithRemark;
-      feedbackData.phase2Remark = typeof phase2Remark === "string" ? phase2Remark : undefined;
     }
 
-    // At least one phase must be present
-    if (!feedbackData.phase1 && !feedbackData.phase2) {
-      return res.status(400).json({ error: "No phase data to submit." });
+    // Phase 2
+    if (phase2) {
+      if (!validatePhase(phase2, 11)) {
+        return res.status(400).json({ error: "Invalid phase2" });
+      }
+
+      feedbackData.phase2 = {
+        ...phase2,
+        remark: phase2Remark || "",
+      };
     }
 
     await feedbackRef.set(feedbackData);
-    return res.status(201).json({ submitted: true });
+
+    return res.json({ submitted: true });
   } catch (error) {
-    console.error("Submit feedback error:", error);
+    console.error(error);
     return res.status(500).json({ error: error.message });
   }
 };
@@ -92,49 +99,49 @@ exports.submitFeedback = async (req, res) => {
  */
 exports.checkFeedbackStatus = async (req, res) => {
   try {
-    const { courseId } = req.params;
-    const idToken = req.headers["authorization"]?.replace("Bearer ", "") || req.query.idToken;
-    const studentId = req.query.studentId;
-    let resolvedStudentId;
+    const { courseId, facultyId } = req.params;
 
-    if (!courseId) {
-      return res.status(400).json({ error: "Missing courseId parameter" });
+    const idToken =
+      req.headers["authorization"]?.replace("Bearer ", "") ||
+      req.query.idToken;
+
+    if (!courseId || !facultyId || !idToken) {
+      return res.status(400).json({ error: "Missing parameters" });
     }
 
-    if (studentId) {
-      resolvedStudentId = studentId;
-    } else if (idToken) {
-      const decodedToken = await getAuth().verifyIdToken(idToken);
-      const email = decodedToken.email;
-      if (!email) return res.status(400).json({ error: "Invalid token: no email" });
-      // Find student by email
-      const studentSnap = await db.collection("students").where("email", "==", email).limit(1).get();
-      if (studentSnap.empty) return res.status(404).json({ error: "Student not found" });
-      resolvedStudentId = studentSnap.docs[0].data().studentId;
-    } else {
-      return res.status(400).json({ error: "Missing studentId or idToken" });
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+    const email = decodedToken.email;
+
+    const studentSnap = await db
+      .collection("students")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (studentSnap.empty) {
+      return res.status(404).json({ error: "Student not found" });
     }
 
-    if (!resolvedStudentId) {
-      return res.status(400).json({ error: "StudentId not found" });
-    }
+    const studentId = studentSnap.docs[0].data().studentId;
 
-    const feedbackId = `${resolvedStudentId}_${courseId}`;
+    // ✅ faculty-based check
+    const feedbackId = `${studentId}_${courseId}_${facultyId}`;
+
     const feedbackDoc = await db.collection("feedback").doc(feedbackId).get();
+
     if (!feedbackDoc.exists) {
       return res.json({ submitted: false });
     }
+
     const feedback = feedbackDoc.data();
-    // Return phase data and remarks for frontend population
+
     return res.json({
       submitted: true,
       phase1: feedback.phase1 || null,
       phase2: feedback.phase2 || null,
-      phase1Remark: feedback.phase1Remark || (feedback.phase1 && feedback.phase1.remark) || "",
-      phase2Remark: feedback.phase2Remark || (feedback.phase2 && feedback.phase2.remark) || "",
     });
   } catch (error) {
-    console.error("Check feedback status error:", error);
+    console.error(error);
     return res.status(500).json({ error: error.message });
   }
 };
@@ -145,33 +152,71 @@ exports.checkFeedbackStatus = async (req, res) => {
 exports.getCourseFaculty = async (req, res) => {
   try {
     const { courseId } = req.params;
+    const { semester, branch } = req.query; // optional filters
+
     if (!courseId) {
-      return res.status(400).json({ error: "Missing courseId parameter" });
+      return res.status(400).json({ error: "courseId is required" });
     }
-    // Get course document
-    const courseSnap = await db.collection("courses").where("courseId", "==", courseId).limit(1).get();
+
+    // STEP 1: Get course
+    let query = db.collection("courses").where("courseId", "==", courseId);
+
+    if (semester) {
+      query = query.where("semester", "==", semester);
+    }
+
+    if (branch) {
+      query = query.where("branch", "==", branch);
+    }
+
+    const courseSnap = await query.limit(1).get();
+
     if (courseSnap.empty) {
       return res.status(404).json({ error: "Course not found" });
     }
+
     const courseData = courseSnap.docs[0].data();
-    const facultyId = courseData.facultyId;
-    if (!facultyId) {
-      return res.status(404).json({ error: "Faculty not assigned to this course" });
+
+    // STEP 2: Get facultyIds (ARRAY ONLY — no string logic anymore)
+    const facultyIds = courseData.facultyIds || [];
+
+    if (facultyIds.length === 0) {
+      return res.status(404).json({
+        error: "No faculty assigned to this course"
+      });
     }
-    // Get faculty document
-    const facultySnap = await db.collection("faculties").where("facultyId", "==", facultyId).limit(1).get();
-    if (facultySnap.empty) {
-      return res.status(404).json({ error: "Faculty not found" });
+
+    // STEP 3: Fetch faculty (handle Firestore limit)
+    const chunkSize = 10;
+    let facultyList = [];
+
+    for (let i = 0; i < facultyIds.length; i += chunkSize) {
+      const chunk = facultyIds.slice(i, i + chunkSize);
+
+      const facultySnap = await db
+        .collection("faculties")
+        .where("facultyId", "in", chunk)
+        .get();
+
+      facultyList.push(...facultySnap.docs.map(doc => doc.data()));
     }
-    const facultyData = facultySnap.docs[0].data();
-    // Build response
-    const response = {
-      facultyId: facultyData.facultyId,
-      facultyName: facultyData.facultyName,
-      subjectId: courseData.courseId,
-      designation: facultyData.designation || ""
-    };
-    return res.json(response);
+
+    // STEP 4: Format response
+    const faculties = facultyList.map(f => ({
+      facultyId: f.facultyId,
+      facultyName: f.facultyName,
+      email: f.email || "",
+      designation: f.designation || ""
+    }));
+
+    return res.json({
+      courseId: courseData.courseId,
+      courseName: courseData.courseName || "",
+      semester: courseData.semester,
+      branch: courseData.branch,
+      faculties
+    });
+
   } catch (error) {
     console.error("Get course faculty error:", error);
     return res.status(500).json({ error: error.message });
@@ -184,48 +229,92 @@ exports.getCourseFaculty = async (req, res) => {
  */
 exports.getStudentCourses = async (req, res) => {
   try {
-    // Accept idToken in header or query, or studentId in query
-    const idToken = req.headers["authorization"]?.replace("Bearer ", "") || req.query.idToken;
-    const studentId = req.query.studentId;
-    let studentProfile;
+    const idToken =
+      req.headers["authorization"]?.replace("Bearer ", "") ||
+      req.query.idToken;
 
-    if (idToken) {
-      // Auth via idToken
-      const decodedToken = await getAuth().verifyIdToken(idToken);
-      const email = decodedToken.email;
-      if (!email) return res.status(400).json({ error: "Invalid token: no email" });
-      // Find student by email
-      const studentSnap = await db.collection("students").where("email", "==", email).limit(1).get();
-      if (studentSnap.empty) return res.status(404).json({ error: "Student not found" });
-      studentProfile = studentSnap.docs[0].data();
-    } else if (studentId) {
-      // Auth via studentId
-      const studentSnap = await db.collection("students").where("studentId", "==", studentId).limit(1).get();
-      if (studentSnap.empty) return res.status(404).json({ error: "Student not found" });
-      studentProfile = studentSnap.docs[0].data();
-    } else {
-      return res.status(400).json({ error: "Missing idToken or studentId" });
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+    const email = decodedToken.email;
+
+    const studentSnap = await db
+      .collection("students")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (studentSnap.empty) {
+      return res.status(404).json({ error: "Student not found" });
     }
 
-    const { branchId, semester } = studentProfile;
-    if (!branchId || !semester) {
-      return res.status(400).json({ error: "Student profile missing branchId or semester" });
-    }
+    const student = studentSnap.docs[0].data();
 
-    // Query courses collection
-    const coursesSnap = await db.collection("courses")
+    const { branchId, semester, name } = student;
+
+    const coursesSnap = await db
+      .collection("courses")
       .where("branchId", "==", branchId)
       .where("semester", "==", semester)
       .get();
 
-    const courses = coursesSnap.docs.map(doc => {
-      const { courseId, courseName, facultyId } = doc.data();
-      return { courseId, courseName, facultyId };
+    const courses = coursesSnap.docs.map((doc) => doc.data());
+
+    // Extract facultyIds (handle string DB)
+    const allFacultyIds = [
+      ...new Set(
+        courses.flatMap((c) =>
+          c.facultyId
+            ? c.facultyId.split(",").map((x) => x.trim())
+            : []
+        )
+      ),
+    ];
+
+    let facultyList = [];
+
+    if (allFacultyIds.length > 0) {
+      const snap = await db
+        .collection("faculties")
+        .where("facultyId", "in", allFacultyIds.slice(0, 10))
+        .get();
+
+      facultyList = snap.docs.map((d) => d.data());
+    }
+
+    const result = courses.map((course) => {
+      const ids = course.facultyId
+        ? course.facultyId.split(",").map((x) => x.trim())
+        : [];
+
+      const faculties = ids.map((fid) => {
+        const f = facultyList.find((x) =>
+          x.facultyId.includes(fid)
+        );
+
+        if (!f) return null;
+
+        return {
+          facultyId: f.facultyId,
+          facultyName: f.facultyName,
+          email: f.email,
+          designation: f.designation,
+        };
+      }).filter(Boolean);
+
+      return {
+        courseId: course.courseId,
+        courseName: course.courseName,
+        credits: course.credits,
+        faculties,
+      };
     });
-    return res.json(courses);
+
+    return res.json({
+      student: { name, branchId, semester },
+      courses: result,
+    });
   } catch (error) {
-    console.error("Get student courses error:", error);
-    return res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: error.message });
   }
 };
 /**

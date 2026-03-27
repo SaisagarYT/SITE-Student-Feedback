@@ -1,5 +1,5 @@
 const express = require("express");
-const { authenticateStudent, loginStudent, getStudentCourses, getCourseFaculty, checkFeedbackStatus, submitFeedback } = require("../controllers/studentController");
+const { loginStudent, getStudentCourses, getCourseFaculty, checkFeedbackStatus, submitFeedback } = require("../controllers/studentController");
 
 // POST /api/student/submit-feedback
 
@@ -12,7 +12,7 @@ const { authenticateStudent, loginStudent, getStudentCourses, getCourseFaculty, 
 const router = express.Router();
 router.post("/submit-feedback", submitFeedback);
 
-router.get("/feedback-status/:courseId", checkFeedbackStatus);
+router.get("/feedback-status/:courseId/:facultyId", checkFeedbackStatus);
 
 router.get("/course/:courseId/faculty", getCourseFaculty);
 

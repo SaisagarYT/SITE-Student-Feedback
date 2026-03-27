@@ -100,8 +100,16 @@ export async function submitStudentFeedback(payload, idToken) {
  * @param {string} [studentId] - Optional studentId if available
  * @returns {Promise<object|null>} Feedback status or null if not found
  */
-export async function getStudentFeedbackByCourse(courseId, idToken, studentId) {
-  let url = `${BASE_URL}/api/student/feedback-status/${encodeURIComponent(courseId)}`;
+/**
+ * Fetch feedback status for a student by courseId and facultyId (and optionally idToken or studentId)
+ * @param {string} courseId - Course ID to check feedback status for
+ * @param {string} facultyId - Faculty ID to check feedback status for
+ * @param {string} [idToken] - Optional idToken for authentication
+ * @param {string} [studentId] - Optional studentId if available
+ * @returns {Promise<object|null>} Feedback status or null if not found
+ */
+export async function getStudentFeedbackByCourse(courseId, facultyId, idToken, studentId) {
+  let url = `${BASE_URL}/api/student/feedback-status/${encodeURIComponent(courseId)}/${encodeURIComponent(facultyId)}`;
   if (studentId) {
     url += `?studentId=${encodeURIComponent(studentId)}`;
   }
