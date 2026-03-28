@@ -275,12 +275,16 @@ useEffect(() => {
     }
     const idToken = await user.getIdToken();
     try {
+      const phase1Ratings = remapPhaseKeys(phaseState.phase1.ratings, "phase1");
       const payload = {
         courseId: selectedCourse.courseId,
         facultyId: selectedFaculty?.facultyId,
-        phase1: remapPhaseKeys(phaseState.phase1.ratings),
-        phase1Remark: phaseState.phase1.remark,
+        phase1: {
+          ...phase1Ratings,
+          remark: phaseState.phase1.remark,
+        },
       };
+      console.log('[DEBUG] Submitting Phase 1 payload:', payload);
       await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
@@ -320,12 +324,16 @@ useEffect(() => {
     }
     const idToken = await user.getIdToken();
     try {
+      const phase2Ratings = remapPhaseKeys(phaseState.phase2.ratings, "phase2");
       const payload = {
         courseId: selectedCourse.courseId,
         facultyId: selectedFaculty?.facultyId,
-        phase2: remapPhaseKeys(phaseState.phase2.ratings),
-        phase2Remark: phaseState.phase2.remark,
+        phase2: {
+          ...phase2Ratings,
+          remark: phaseState.phase2.remark,
+        },
       };
+      console.log('[DEBUG] Submitting Phase 2 payload:', payload);
       await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
@@ -351,14 +359,23 @@ useEffect(() => {
       window.alert("Failed to submit Phase 2 feedback. Please try again.");
     }
   };
-  // Helper to remap keys for backend
-  function remapPhaseKeys(phaseRatings: Record<string, number>): Record<string, number> {
+  // Helper to remap keys for backend (with reverse scoring)
+  function remapPhaseKeys(phaseRatings: Record<string, number>, phaseId?: "phase1" | "phase2"): Record<string, number> {
     const mapped: Record<string, number> = {};
+    const phaseConfig = feedbackPhases.find(p => p.id === phaseId);
     Object.entries(phaseRatings).forEach(([key, value]) => {
-      const match = key.match(/q(\d+)$/);
+      // Convert keys like p1_q1 or p2_q1 to q1, q2, ...
+      let qKey = key;
+      const match = key.match(/^p\d+_(q\d+)$/);
       if (match) {
-        mapped[`q${match[1]}`] = value;
+        qKey = match[1];
       }
+      const question = phaseConfig?.questions.find(q => q.id === key);
+      let finalValue = value;
+      if (question?.reverseScored) {
+        finalValue = 6 - value;
+      }
+      mapped[qKey] = finalValue;
     });
     return mapped;
   }
