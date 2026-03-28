@@ -56,12 +56,12 @@ export default function HomePage() {
 
   // When selectedCourse changes, reset selectedFaculty to first faculty
   useEffect(() => {
-  if (selectedCourse && selectedCourse.faculties.length > 0) {
-          setSelectedFaculty(selectedCourse?.faculties?.[0] || null);
-  } else {
-    setSelectedFaculty(null);
-  }
-}, [selectedCourse]);
+      if (selectedCourse?.faculties?.length && selectedCourse.faculties[0]) {
+        setSelectedFaculty(selectedCourse.faculties[0]);
+      } else {
+        setSelectedFaculty(null);
+      }
+    }, [selectedCourse]);
       // Re-fetch feedback status when selectedFaculty changes
       useEffect(() => {
         if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
@@ -448,7 +448,7 @@ useEffect(() => {
                   {/* Faculty info display */}
                   <div className="mb-2">
                     {facultyLoading && <span className="text-base text-white/80">Loading faculty...</span>}
-                    {!facultyLoading && selectedCourse?.faculties?.length > 0 && (
+                    {!facultyLoading && !!selectedCourse?.faculties && selectedCourse.faculties.length > 0 && (
                       <>
                         <label htmlFor="faculty-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
                           Select faculty
