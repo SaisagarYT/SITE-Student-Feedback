@@ -32,13 +32,16 @@ exports.submitFeedback = async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
+
     const studentId = studentSnap.docs[0].data().studentId;
 
     // ✅ FIXED: include facultyId
     const feedbackId = `${studentId}_${courseId}_${facultyId}`;
+    console.log(`[submitFeedback] feedbackId: ${feedbackId}`);
 
     const feedbackRef = db.collection("feedback").doc(feedbackId);
     const feedbackDoc = await feedbackRef.get();
+    console.log(`[submitFeedback] feedbackDoc.exists: ${feedbackDoc.exists}`);
 
     let feedbackData = feedbackDoc.exists
       ? feedbackDoc.data()
@@ -122,15 +125,18 @@ exports.checkFeedbackStatus = async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
+
     const studentId = studentSnap.docs[0].data().studentId;
 
     // ✅ faculty-based check
     const feedbackId = `${studentId}_${courseId}_${facultyId}`;
+    console.log(`[checkFeedbackStatus] feedbackId: ${feedbackId}`);
 
     const feedbackDoc = await db.collection("feedback").doc(feedbackId).get();
+    console.log(`[checkFeedbackStatus] feedbackDoc.exists: ${feedbackDoc.exists}`);
 
     if (!feedbackDoc.exists) {
-      return res.json({ submitted: false });
+      return res.json({ submitted: false });  
     }
 
     const feedback = feedbackDoc.data();
@@ -161,118 +167,59 @@ exports.getCourseFaculty = async (req, res) => {
     const db = require("../config/firebase");
 
     // STEP 1: Get course
-    let query = db.collection("courses").where("courseId", "==", courseId);
 
+    let query = db.collection("courses").where("courseId", "==", courseId);
     if (semester) {
       query = query.where("semester", "==", semester);
     }
-
     if (branch) {
       query = query.where("branch", "==", branch);
     }
 
-    const courseSnap = await query.limit(1).get();
-
+    // Fetch all documents with the same courseId
+    const courseSnap = await query.get();
     if (courseSnap.empty) {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    const courseData = courseSnap.docs[0].data();
-
-    // STEP 2: Normalize facultyIds
-    let facultyIds = [];
-
-    if (Array.isArray(courseData.facultyIds)) {
-      facultyIds = courseData.facultyIds;
-    } else if (courseData["Faculty Id"]) {
-      facultyIds = courseData["Faculty Id"]
-        .split(",")
-        .map(id => id.trim());
-    }
-
+    // Aggregate all unique facultyIds from all matching course docs
+    let facultyIdsSet = new Set();
+    let courseData = null;
+    courseSnap.forEach(doc => {
+      const data = doc.data();
+      if (!courseData) courseData = data; // Use the first doc for course meta
+      if (Array.isArray(data.facultyIds)) {
+        data.facultyIds.forEach(id => facultyIdsSet.add(id));
+      } else if (data["Faculty Id"]) {
+        facultyIdsSet.add(data["Faculty Id"].trim());
+      }
+    });
+    const facultyIds = Array.from(facultyIdsSet).filter(Boolean);
     if (facultyIds.length === 0) {
-      return res.status(404).json({
-        error: "No faculty assigned to this course"
-      });
+      return res.status(404).json({ error: "No faculty assigned to this course" });
     }
+
 
     let facultyList = [];
-
-    // STEP 3: Try normal Firestore query (clean data)
+    // Query faculties collection for all unique facultyIds
     const chunkSize = 10;
-
     for (let i = 0; i < facultyIds.length; i += chunkSize) {
       const chunk = facultyIds.slice(i, i + chunkSize);
-
       const snap = await db
         .collection("faculties")
         .where("facultyId", "in", chunk)
         .get();
-
       facultyList.push(...snap.docs.map(doc => doc.data()));
     }
 
-    // STEP 4: Strong fallback (handles ALL bad data cases)
-    if (facultyList.length === 0) {
-      const allSnap = await db.collection("faculties").get();
 
-      allSnap.forEach(doc => {
-        const data = doc.data();
-
-        // Case 1: Combined facultyId string
-        if (data.facultyId) {
-          const storedIds = data.facultyId
-            .split(",")
-            .map(id => id.trim());
-
-          const match = facultyIds.some(id =>
-            storedIds.includes(id)
-          );
-
-          if (match) {
-            facultyList.push(data);
-            return;
-          }
-        }
-
-        // Case 2: subjectId fallback (CRITICAL FOR ML LAB)
-        if (data.subjectId && data.subjectId === courseId) {
-          facultyList.push(data);
-        }
-      });
-    }
-
-    // STEP 5: Normalize + split combined faculty entries
-    let finalFaculty = [];
-
-    facultyList.forEach(f => {
-      const ids = (f.facultyId || f["Faculty Id"] || "")
-        .split(",")
-        .map(id => id.trim());
-
-      const names = (f.facultyName || f.FacultyName || "")
-        .split(",")
-        .map(name => name.trim());
-
-      ids.forEach((id, index) => {
-        finalFaculty.push({
-          facultyId: id,
-          facultyName: names[index] || "",
-          email: (f.email || f.Email || "").split(",")[index] || "",
-          designation: f.designation || f.Designation || ""
-        });
-      });
-    });
-
-    // STEP 6: Remove duplicates
+    // Remove duplicate faculty by facultyId
     const uniqueMap = new Map();
-
-    finalFaculty.forEach(f => {
+    facultyList.forEach(f => {
       if (!uniqueMap.has(f.facultyId)) {
         uniqueMap.set(f.facultyId, f);
       }
     });
-
     const faculties = Array.from(uniqueMap.values());
 
     return res.json({
@@ -299,6 +246,11 @@ exports.getStudentCourses = async (req, res) => {
       req.headers["authorization"]?.replace("Bearer ", "") ||
       req.query.idToken;
 
+    if (!idToken) {
+      return res.status(400).json({ error: "Missing idToken" });
+    }
+
+    // STEP 1: Get student
     const decodedToken = await getAuth().verifyIdToken(idToken);
     const email = decodedToken.email;
 
@@ -313,73 +265,101 @@ exports.getStudentCourses = async (req, res) => {
     }
 
     const student = studentSnap.docs[0].data();
-
     const { branchId, semester, name } = student;
 
+    // STEP 2: Get courses (auto-ID model)
     const coursesSnap = await db
       .collection("courses")
       .where("branchId", "==", branchId)
       .where("semester", "==", semester)
       .get();
 
-    const courses = coursesSnap.docs.map((doc) => doc.data());
-
-    // Extract facultyIds (handle string DB)
-    const allFacultyIds = [
-      ...new Set(
-        courses.flatMap((c) =>
-          c.facultyId
-            ? c.facultyId.split(",").map((x) => x.trim())
-            : []
-        )
-      ),
-    ];
-
-    let facultyList = [];
-
-    if (allFacultyIds.length > 0) {
-      const snap = await db
-        .collection("faculties")
-        .where("facultyId", "in", allFacultyIds.slice(0, 10))
-        .get();
-
-      facultyList = snap.docs.map((d) => d.data());
+    if (coursesSnap.empty) {
+      return res.json({
+        student: { name, branchId, semester },
+        courses: []
+      });
     }
 
-    const result = courses.map((course) => {
-      const ids = course.facultyId
-        ? course.facultyId.split(",").map((x) => x.trim())
-        : [];
+    // STEP 3: Group courses + collect facultyIds
+    const courseMap = new Map();
+    const facultyIdSet = new Set();
 
-      const faculties = ids.map((fid) => {
-        const f = facultyList.find((x) =>
-          x.facultyId.includes(fid)
-        );
+    for (const doc of coursesSnap.docs) {
+      const data = doc.data();
+      const courseId = data.courseId;
 
-        if (!f) return null;
+      if (!courseMap.has(courseId)) {
+        courseMap.set(courseId, {
+          courseId: data.courseId,
+          courseName: data.courseName,
+          credits: data.credits,
+          semester: data.semester,
+          branchId: data.branchId,
+          facultyIds: new Set()
+        });
+      }
 
-        return {
-          facultyId: f.facultyId,
-          facultyName: f.facultyName,
-          email: f.email,
-          designation: f.designation,
-        };
-      }).filter(Boolean);
+      if (data.facultyId) {
+        courseMap.get(courseId).facultyIds.add(data.facultyId);
+        facultyIdSet.add(data.facultyId);
+      }
+    }
 
-      return {
+    // STEP 4: Fetch all faculties in bulk
+    const facultyIds = Array.from(facultyIdSet);
+    let facultyMap = new Map();
+
+    const chunkSize = 10;
+    for (let i = 0; i < facultyIds.length; i += chunkSize) {
+      const chunk = facultyIds.slice(i, i + chunkSize);
+
+      const snap = await db
+        .collection("faculties")
+        .where("facultyId", "in", chunk)
+        .get();
+
+      snap.docs.forEach(doc => {
+        const f = doc.data();
+        facultyMap.set(f.facultyId, f);
+      });
+    }
+
+    // STEP 5: Attach faculty details to courses
+    const courses = [];
+
+    for (const course of courseMap.values()) {
+      const faculties = [];
+
+      for (const fid of course.facultyIds) {
+        if (facultyMap.has(fid)) {
+          const f = facultyMap.get(fid);
+
+          faculties.push({
+            facultyId: f.facultyId,
+            facultyName: f.facultyName,
+            designation: f.designation
+          });
+        }
+      }
+
+      courses.push({
         courseId: course.courseId,
         courseName: course.courseName,
         credits: course.credits,
-        faculties,
-      };
-    });
+        semester: course.semester,
+        branchId: course.branchId,
+        faculties
+      });
+    }
 
     return res.json({
       student: { name, branchId, semester },
-      courses: result,
+      courses
     });
+
   } catch (error) {
-    console.error(error);
+    console.error("getStudentCourses error:", error);
     res.status(500).json({ error: error.message });
   }
 };

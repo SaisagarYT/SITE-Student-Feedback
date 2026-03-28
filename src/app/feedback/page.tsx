@@ -53,6 +53,15 @@ export default function HomePage() {
   });
   const [phase2Active, setPhase2Active] = useState<boolean>(false);
   const [phase2ActiveLoading, setPhase2ActiveLoading] = useState<boolean>(true);
+
+  // When selectedCourse changes, reset selectedFaculty to first faculty
+  useEffect(() => {
+  if (selectedCourse && selectedCourse.faculties.length > 0) {
+          setSelectedFaculty(selectedCourse?.faculties?.[0] || null);
+  } else {
+    setSelectedFaculty(null);
+  }
+}, [selectedCourse]);
       // Re-fetch feedback status when selectedFaculty changes
       useEffect(() => {
         if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
@@ -62,6 +71,11 @@ export default function HomePage() {
             const value = `; ${document.cookie}`;
             const parts = value.split(`; token=`);
             const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
+            console.log('[DEBUG] Checking feedback status with:', {
+              courseId: selectedCourse.courseId,
+              facultyId: selectedFaculty?.facultyId,
+              token: token?.slice(0, 10) + '...'
+            });
             const feedback = await getStudentFeedbackByCourse(
               selectedCourse.courseId,
               selectedFaculty?.facultyId,
@@ -172,6 +186,10 @@ export default function HomePage() {
         } else if (response && Array.isArray(response.courses)) {
           courseList = response.courses;
         }
+        // Log faculty details for each course
+        courseList.forEach(course => {
+          console.log(`Course: ${course.courseName} (${course.courseId}) faculties:`, course.faculties);
+        });
         setCourses(courseList);
         setSelectedCourse(courseList.length > 0 ? courseList[0] : null);
         setSelectedFaculty(courseList.length > 0 && courseList[0].faculties.length > 0 ? courseList[0].faculties[0] : null);
@@ -187,73 +205,7 @@ export default function HomePage() {
   }, [authChecked, isAuthed]);
 
   // Update feedback fetching to depend on selectedCourseId
-  // Fetch feedback and faculty info when course changes
-  useEffect(() => {
-    if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
-    // Faculty is now part of selectedCourse
-    setFacultyLoading(false);
-    // Fetch feedback
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user || !user.email) return;
-      try {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; token=`);
-        const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
-        // Define the expected feedback type
-        type FeedbackStatusResponse = {
-          submitted: boolean;
-          phase1?: { ratings?: Record<string, number>; remark?: string } | null;
-          phase2?: { ratings?: Record<string, number>; remark?: string } | null;
-          phase1Remark?: string;
-          phase2Remark?: string;
-        };
-        const feedback = await getStudentFeedbackByCourse(
-          selectedCourse.courseId,
-          selectedFaculty?.facultyId,
-          token
-        ) as FeedbackStatusResponse;
-        if (feedback && feedback.submitted) {
-          // Extract only q1, q2, ... keys for ratings
-          const extractRatings = (phaseObj: unknown) => {
-            if (!phaseObj) return {};
-            const ratings: Record<string, number> = {};
-            Object.entries(phaseObj).forEach(([k, v]) => {
-              if (/^q\d+$/.test(k) && typeof v === 'number') ratings[k] = v;
-            });
-            return ratings;
-          };
-          setPhaseState({
-            phase1: {
-              ratings: extractRatings(feedback.phase1),
-              remark: feedback.phase1Remark || (feedback.phase1 && feedback.phase1.remark) || "",
-            },
-            phase2: {
-              ratings: extractRatings(feedback.phase2),
-              remark: feedback.phase2Remark || (feedback.phase2 && feedback.phase2.remark) || "",
-            },
-          });
-          setPhase1AlreadySubmitted(!!feedback.phase1);
-          setPhase2AlreadySubmitted(!!feedback.phase2);
-        } else {
-          setPhase1AlreadySubmitted(false);
-          setPhase2AlreadySubmitted(false);
-          setPhaseState({
-            phase1: { ratings: {}, remark: "" },
-            phase2: { ratings: {}, remark: "" },
-          });
-        }
-      } catch {
-        setPhase1AlreadySubmitted(false);
-        setPhase2AlreadySubmitted(false);
-        setPhaseState({
-          phase1: { ratings: {}, remark: "" },
-          phase2: { ratings: {}, remark: "" },
-        });
-      }
-    });
-    return () => unsubscribe();
-  }, [authChecked, isAuthed, selectedCourse, selectedFaculty]);
+  // Removed duplicate feedback fetching useEffect with onAuthStateChanged
 // Reset state when faculty changes
 useEffect(() => {
   setPhase1AlreadySubmitted(false);
@@ -496,7 +448,7 @@ useEffect(() => {
                   {/* Faculty info display */}
                   <div className="mb-2">
                     {facultyLoading && <span className="text-base text-white/80">Loading faculty...</span>}
-                    {!facultyLoading && selectedCourse && selectedCourse.faculties.length > 0 && (
+                    {!facultyLoading && selectedCourse?.faculties?.length > 0 && (
                       <>
                         <label htmlFor="faculty-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
                           Select faculty
@@ -505,12 +457,12 @@ useEffect(() => {
                           id="faculty-select"
                           value={selectedFaculty?.facultyId || ""}
                           onChange={e => {
-                            const faculty = selectedCourse.faculties.find(f => f.facultyId === e.target.value) || null;
+                            const faculty = selectedCourse?.faculties?.find(f => f.facultyId === e.target.value) || null;
                             setSelectedFaculty(faculty);
                           }}
                           className="w-full appearance-none rounded-2xl border border-white/20 bg-white/14 px-4 py-3 pr-11 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] outline-none transition focus:border-white/50 focus:bg-white/18 focus:ring-2 focus:ring-white/18"
                         >
-                          {selectedCourse.faculties.map(faculty => (
+                          {selectedCourse?.faculties?.map(faculty => (
                             <option key={faculty.facultyId} value={faculty.facultyId} className="text-(--ink)">
                               {faculty.facultyName} {faculty.designation ? `(${faculty.designation})` : ""}
                             </option>
@@ -521,7 +473,7 @@ useEffect(() => {
                         )}
                       </>
                     )}
-                    {!facultyLoading && selectedCourse && selectedCourse.faculties.length === 0 && (
+                    {!facultyLoading && selectedCourse?.faculties?.length === 0 && (
                       <span className="block text-base text-white/80">No faculty assigned.</span>
                     )}
                   </div>
