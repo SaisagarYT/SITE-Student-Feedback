@@ -108,12 +108,16 @@ export async function submitStudentFeedback(payload, idToken) {
  * @param {string} [studentId] - Optional studentId if available
  * @returns {Promise<object|null>} Feedback status or null if not found
  */
-export async function getStudentFeedbackByCourse(courseId, idToken, studentId) {
-  let url = `${BASE_URL}/api/student/feedback-status/${encodeURIComponent(courseId)}`;
-  if (studentId) {
-    url += `?studentId=${encodeURIComponent(studentId)}`;
-  }
-  const headers = { "Content-Type": "application/json" };
+/**
+ * Fetch feedback status for a student by courseId and facultyId
+ * @param {string} courseId - Course ID to check feedback status for
+ * @param {string} facultyId - Faculty ID to check feedback status for
+ * @param {string} idToken - Firebase ID token for authentication
+ * @returns {Promise<object|null>} Feedback status or null if not found
+ */
+export async function getStudentFeedbackByCourse(courseId, facultyId, idToken) {
+  const url = `${BASE_URL}/api/student/feedback-status/${encodeURIComponent(courseId)}/${encodeURIComponent(facultyId)}`;
+  const headers = { "Content-Type": "application/json" }; 
   if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
   const response = await fetch(url, { headers });
   if (response.status === 404) return null;
