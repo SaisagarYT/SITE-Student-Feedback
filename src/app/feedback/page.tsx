@@ -66,7 +66,8 @@ export default function HomePage() {
               selectedCourse.courseId,
               selectedFaculty?.facultyId,
               token
-            )
+            );
+            console.log('Feedback status response:', feedback);
             const fb = feedback as FeedbackStatusResponse;
             if (fb && fb.submitted) {
               const extractRatings = (phaseObj: unknown) => {
