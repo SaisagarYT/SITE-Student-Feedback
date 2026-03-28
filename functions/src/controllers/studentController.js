@@ -152,11 +152,13 @@ exports.checkFeedbackStatus = async (req, res) => {
 exports.getCourseFaculty = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { semester, branch } = req.query; // optional filters
+    const { semester, branch } = req.query;
 
     if (!courseId) {
       return res.status(400).json({ error: "courseId is required" });
     }
+
+    const db = require("../config/firebase");
 
     // STEP 1: Get course
     let query = db.collection("courses").where("courseId", "==", courseId);
@@ -177,8 +179,16 @@ exports.getCourseFaculty = async (req, res) => {
 
     const courseData = courseSnap.docs[0].data();
 
-    // STEP 2: Get facultyIds (ARRAY ONLY — no string logic anymore)
-    const facultyIds = courseData.facultyIds || [];
+    // STEP 2: Normalize facultyIds
+    let facultyIds = [];
+
+    if (Array.isArray(courseData.facultyIds)) {
+      facultyIds = courseData.facultyIds;
+    } else if (courseData["Faculty Id"]) {
+      facultyIds = courseData["Faculty Id"]
+        .split(",")
+        .map(id => id.trim());
+    }
 
     if (facultyIds.length === 0) {
       return res.status(404).json({
@@ -186,28 +196,84 @@ exports.getCourseFaculty = async (req, res) => {
       });
     }
 
-    // STEP 3: Fetch faculty (handle Firestore limit)
-    const chunkSize = 10;
     let facultyList = [];
+
+    // STEP 3: Try normal Firestore query (clean data)
+    const chunkSize = 10;
 
     for (let i = 0; i < facultyIds.length; i += chunkSize) {
       const chunk = facultyIds.slice(i, i + chunkSize);
 
-      const facultySnap = await db
+      const snap = await db
         .collection("faculties")
         .where("facultyId", "in", chunk)
         .get();
 
-      facultyList.push(...facultySnap.docs.map(doc => doc.data()));
+      facultyList.push(...snap.docs.map(doc => doc.data()));
     }
 
-    // STEP 4: Format response
-    const faculties = facultyList.map(f => ({
-      facultyId: f.facultyId,
-      facultyName: f.facultyName,
-      email: f.email || "",
-      designation: f.designation || ""
-    }));
+    // STEP 4: Strong fallback (handles ALL bad data cases)
+    if (facultyList.length === 0) {
+      const allSnap = await db.collection("faculties").get();
+
+      allSnap.forEach(doc => {
+        const data = doc.data();
+
+        // Case 1: Combined facultyId string
+        if (data.facultyId) {
+          const storedIds = data.facultyId
+            .split(",")
+            .map(id => id.trim());
+
+          const match = facultyIds.some(id =>
+            storedIds.includes(id)
+          );
+
+          if (match) {
+            facultyList.push(data);
+            return;
+          }
+        }
+
+        // Case 2: subjectId fallback (CRITICAL FOR ML LAB)
+        if (data.subjectId && data.subjectId === courseId) {
+          facultyList.push(data);
+        }
+      });
+    }
+
+    // STEP 5: Normalize + split combined faculty entries
+    let finalFaculty = [];
+
+    facultyList.forEach(f => {
+      const ids = (f.facultyId || f["Faculty Id"] || "")
+        .split(",")
+        .map(id => id.trim());
+
+      const names = (f.facultyName || f.FacultyName || "")
+        .split(",")
+        .map(name => name.trim());
+
+      ids.forEach((id, index) => {
+        finalFaculty.push({
+          facultyId: id,
+          facultyName: names[index] || "",
+          email: (f.email || f.Email || "").split(",")[index] || "",
+          designation: f.designation || f.Designation || ""
+        });
+      });
+    });
+
+    // STEP 6: Remove duplicates
+    const uniqueMap = new Map();
+
+    finalFaculty.forEach(f => {
+      if (!uniqueMap.has(f.facultyId)) {
+        uniqueMap.set(f.facultyId, f);
+      }
+    });
+
+    const faculties = Array.from(uniqueMap.values());
 
     return res.json({
       courseId: courseData.courseId,

@@ -1,3 +1,11 @@
+// Unified admin dashboard analytics API fetcher
+// Use this for all dashboard analytics in the frontend
+
+export async function getAdminDashboardOverview() {
+  const response = await fetch(`${BASE_URL}/api/admin/dashboard`);
+  if (!response.ok) throw new Error('Failed to fetch dashboard overview');
+  return response.json();
+}
 /**
  * Fetch the global phase2Active flag (admin or student)
  * @returns {Promise<boolean>} true if phase2 is active, false otherwise
@@ -100,16 +108,8 @@ export async function submitStudentFeedback(payload, idToken) {
  * @param {string} [studentId] - Optional studentId if available
  * @returns {Promise<object|null>} Feedback status or null if not found
  */
-/**
- * Fetch feedback status for a student by courseId and facultyId (and optionally idToken or studentId)
- * @param {string} courseId - Course ID to check feedback status for
- * @param {string} facultyId - Faculty ID to check feedback status for
- * @param {string} [idToken] - Optional idToken for authentication
- * @param {string} [studentId] - Optional studentId if available
- * @returns {Promise<object|null>} Feedback status or null if not found
- */
-export async function getStudentFeedbackByCourse(courseId, facultyId, idToken, studentId) {
-  let url = `${BASE_URL}/api/student/feedback-status/${encodeURIComponent(courseId)}/${encodeURIComponent(facultyId)}`;
+export async function getStudentFeedbackByCourse(courseId, idToken, studentId) {
+  let url = `${BASE_URL}/api/student/feedback-status/${encodeURIComponent(courseId)}`;
   if (studentId) {
     url += `?studentId=${encodeURIComponent(studentId)}`;
   }
@@ -129,11 +129,7 @@ export async function getStudentFeedbackByCourse(courseId, facultyId, idToken, s
  * Get admin dashboard overview analytics (new backend)
  * @returns {Promise<object>} Backend response
  */
-export async function getAdminDashboardOverview() {
-  const response = await fetch(`${BASE_URL}/api/admin/dashboard`);
-  if (!response.ok) throw new Error('Failed to fetch dashboard overview');
-  return response.json();
-}
+
 
 /**
  * Login student with Google ID token.

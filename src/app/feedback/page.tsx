@@ -163,6 +163,7 @@ export default function HomePage() {
         if (user) {
           idToken = await user.getIdToken();
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const response: any = await getStudentCourses(idToken);
         let courseList: Array<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> }> = [];
         if (Array.isArray(response)) {

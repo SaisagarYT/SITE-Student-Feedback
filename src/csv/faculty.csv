@@ -5,9 +5,9 @@ S24ECE407,Dr. U. Uma Maheswara Rao,23ECECT6030,umamaheswararao@sasi.ac.in,Asst. 
 S25ECE406,Dr.Winny Elizabeth Philip,23ECECP604B,winnyelizabethphilip@sasi.ac.in,Asst. Professor,ECE
 S09ECE269,Mr.T.Venkateswara Reddy,23ECECP605C,tvreddy@sasi.ac.in,Asst. Professor,ECE
 S22CSE505,Mrs.D.Amaravathi,21ECCSO606A,amaravathi@sasi.ac.in,Asst. Professor,CSE
-"S22ECE406, S25ECE405","Mrs.P.Madhuri,Mrs.N.Kusuma",23ECECL6070,"vmadhuri@sasi.ac.in,kusuma.n@sasi.ac.in",Asst. Professor,ECE
-"S11ECE002, S09ECE269","Mrs.N.Sannajaaji , Mr.T.V.Reddy",23ECECL6080,"sannajaji@sasi.ac.in,tvreddy@sasi.ac.in",Asst. Professor,ECE
-"S10ECE320, S25ECE404","MrV.V.N.Sujit,Dr.Sri Ramya",23ECECL6090,ramya.siraparapu@sasi.ac.in,Asst. Professor,ECE
+S22ECE406,Mrs.P.Madhuri,23ECECL6070,vmadhuri@sasi.ac.in,Asst. Professor,ECE
+S11ECE002,Mrs.N.Sannajaaji,23ECECL6080,"sannajaji@sasi.ac.in,tvreddy@sasi.ac.in",Asst. Professor,ECE
+S10ECE320,"MrV.V.N.Sujit,Dr.Sri Ramya",23ECECL6090,ramya.siraparapu@sasi.ac.in,Asst. Professor,ECE
 S19ECE413,Mr.M.Ravi Sankar,23ECEAC6100,mravi@sasi.ac.in,Asst. Professor,ECE
 S08CSE178,K. Sandeep,23CSCST6010,sandeepkone@sasi.ac.in,Associate.Proff,CSE
 S22CSE504,Dr. M. Parthiban,23CSCST6020,parthiban@sasiac.in,Professor,CSE
@@ -17,3 +17,6 @@ S23CSE513,N. Divya Sri,23CSCSP605A,divya.narpina@sasi.ac.in,Assistant.Prof,CSE
 S07MEC89,Y. Raghuram,23CSMEO606A,yraghuram@sasi.ac.in,Assistant.Prof,MEC
 S22CSE504,Dr. M. Parthiban/ S. Karthikeyan,23CSCSL6070,parthiban@sasiac.in,Professor,CSE
 S08CSE178,T. Uday/ K. Sandeep,23CSCSL6080,sandeepkone@sasi.ac.in,Associate.Proff,CSE
+S25ECE405,Mrs.N.Kusuma,23ECECL6070,kusuma.n@sasi.ac.in,Asst. Professor,ECE
+S09ECE269,Mr.T.V.Reddy,23ECECL6080,tvreddy@sasi.ac.in,Asst. Professor,ECE
+S25ECE404,Dr.Sri Ramya,23ECECL6090,ramya.siraparapu@sasi.ac.in,Asst. Professor,ECE

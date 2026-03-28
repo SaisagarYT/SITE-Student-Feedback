@@ -5,16 +5,7 @@ interface InsightPanelProps {
 }
 
 export default function InsightPanel({ data }: InsightPanelProps) {
-  if (!data) {
-    return (
-      <div className="bg-white shadow rounded-xl p-4">
-        <h3 className="font-semibold mb-3">Insights</h3>
-        <div className="text-gray-400 text-sm">No insights available.</div>
-      </div>
-    );
-  }
-
-  if (data.length === 0) {
+  if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className="bg-white shadow rounded-xl p-4">
         <h3 className="font-semibold mb-3">Insights</h3>
