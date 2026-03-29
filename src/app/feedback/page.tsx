@@ -1,4 +1,10 @@
+
 "use client";
+// Firestore feedback document type
+type FeedbackDoc = {
+  ratings?: Record<string, number>;
+  remark?: string;
+};
 // Helper to extract ratings from phase object
 function extractRatings(phaseObj: unknown): Record<string, number> {
   if (!phaseObj) return {};
@@ -15,20 +21,27 @@ function extractRatings(phaseObj: unknown): Record<string, number> {
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-type FeedbackStatusResponse = {
-  submitted: boolean;
-  phase1?: { [key: string]: number | string } | null;
-  phase2?: { [key: string]: number | string } | null;
-  phase1Remark?: string;
-  phase2Remark?: string;
-};
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+
+
+import { getAuth } from "firebase/auth";
 import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getPhase2Active } from "@/api";
 import gsap from "gsap";
 import { Icon } from "@iconify/react";
 import FeedbackHeader from "@/components/feedback/FeedbackHeader";
 import PhaseSection from "@/components/feedback/PhaseSection";
 import { feedbackPhases } from "@/data/questions";
+
+// Define a Course type for type safety
+type Faculty = { facultyId: string; facultyName: string; email?: string; designation?: string };
+type Course = {
+  section: string;
+  semester: string;
+  branchId: string;
+  courseId: string;
+  courseName: string;
+  credits?: string;
+  faculties: Faculty[];
+};
 
 
 type PhaseProgressState = {
@@ -39,10 +52,10 @@ type PhaseProgressState = {
 export default function HomePage() {
   // All state hooks at the top
   // Faculty is now selected from course.faculties
-  const [facultyLoading, setFacultyLoading] = useState(false);
-  const [courses, setCourses] = useState<Array<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> }>>([]);
-  const [selectedCourse, setSelectedCourse] = useState<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> } | null>(null);
-  const [selectedFaculty, setSelectedFaculty] = useState<{ facultyId: string; facultyName: string; email?: string; designation?: string } | null>(null);
+  const [facultyLoading] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedFaculty, setSelectedFaculty] = useState<Faculty | null>(null);
   const [phase1AlreadySubmitted, setPhase1AlreadySubmitted] = useState(false);
   const [phase2AlreadySubmitted, setPhase2AlreadySubmitted] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -71,47 +84,47 @@ export default function HomePage() {
             const value = `; ${document.cookie}`;
             const parts = value.split(`; token=`);
             const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
-            console.log('[DEBUG] Checking feedback status with:', {
-              courseId: selectedCourse.courseId,
-              facultyId: selectedFaculty?.facultyId,
-              token: token?.slice(0, 10) + '...'
-            });
-            const feedback = await getStudentFeedbackByCourse(
+            // Fetch phase 1 feedback
+            const feedback1 = await getStudentFeedbackByCourse(
               selectedCourse.courseId,
               selectedFaculty?.facultyId,
               token
             );
-            console.log('Feedback status response:', feedback);
-            const fb = feedback as FeedbackStatusResponse;
-            if (fb && fb.submitted) {
-              const extractRatings = (phaseObj: unknown) => {
-                if (!phaseObj) return {};
-                const ratings: Record<string, number> = {};
-                Object.entries(phaseObj).forEach(([k, v]) => {
-                  if (/^q\d+$/.test(k) && typeof v === 'number') ratings[k] = v;
-                });
-                return ratings;
-              };
-              setPhaseState({
-                phase1: {
-                  ratings: extractRatings(fb.phase1),
-                  remark: fb.phase1Remark || (fb.phase1 && typeof fb.phase1 === 'object' && 'remark' in fb.phase1 ? (fb.phase1.remark as string) : ""),
-                },
-                phase2: {
-                  ratings: extractRatings(fb.phase2),
-                  remark: fb.phase2Remark || (fb.phase2 && typeof fb.phase2 === 'object' && 'remark' in fb.phase2 ? (fb.phase2.remark as string) : ""),
-                },
-              });
-              setPhase1AlreadySubmitted(!!fb.phase1);
-              setPhase2AlreadySubmitted(!!fb.phase2);
-            } else {
-              setPhase1AlreadySubmitted(false);
-              setPhase2AlreadySubmitted(false);
-              setPhaseState({
-                phase1: { ratings: {}, remark: "" },
-                phase2: { ratings: {}, remark: "" },
-              });
+            console.log('Phase 1 feedback response:', feedback1);
+            // Fetch phase 2 feedback
+            const feedback2 = await getStudentFeedbackByCourse(
+              selectedCourse.courseId,
+              selectedFaculty?.facultyId,
+              token
+            );
+            // If backend returns {submitted: true, phase1: {...}, phase2: null}, treat as phase1 submitted
+            // Define a type for backend feedback response
+            type BackendFeedback = {
+              submitted?: boolean;
+              phase1?: { ratings?: Record<string, number>; remark?: string } | null;
+              phase2?: { ratings?: Record<string, number>; remark?: string } | null;
+            };
+
+            function isBackendFeedback(obj: unknown): obj is BackendFeedback {
+              return (
+                typeof obj === 'object' && obj !== null &&
+                ('submitted' in obj || 'phase1' in obj || 'phase2' in obj)
+              );
             }
+
+            const fb1: BackendFeedback = isBackendFeedback(feedback1) ? feedback1 : {};
+            const fb2: BackendFeedback = isBackendFeedback(feedback2) ? feedback2 : {};
+
+            setPhaseState({
+              phase1: fb1.phase1 && typeof fb1.phase1.ratings === 'object'
+                ? { ratings: extractRatings(fb1.phase1.ratings), remark: fb1.phase1.remark || "" }
+                : { ratings: {}, remark: "" },
+              phase2: fb2.phase2 && typeof fb2.phase2.ratings === 'object'
+                ? { ratings: extractRatings(fb2.phase2.ratings), remark: fb2.phase2.remark || "" }
+                : { ratings: {}, remark: "" },
+            });
+            setPhase1AlreadySubmitted(!!(fb1.submitted && fb1.phase1));
+            setPhase2AlreadySubmitted(!!(fb2.submitted && fb2.phase2));
           } catch {
             setPhase1AlreadySubmitted(false);
             setPhase2AlreadySubmitted(false);
@@ -180,19 +193,49 @@ export default function HomePage() {
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const response: any = await getStudentCourses(idToken);
-        let courseList: Array<{ courseId: string; courseName: string; credits?: string; faculties: Array<{ facultyId: string; facultyName: string; email?: string; designation?: string }> }> = [];
+        let courseList: unknown[] = [];
         if (Array.isArray(response)) {
           courseList = response;
-        } else if (response && Array.isArray(response.courses)) {
-          courseList = response.courses;
+        } else if (
+          response &&
+          typeof response === 'object' &&
+          'courses' in response &&
+          Array.isArray((response as Record<string, unknown>).courses)
+        ) {
+          courseList = (response as Record<string, unknown>).courses as unknown[];
         }
+        // Normalize all courses to include section, semester, branchId, and ensure type safety
+        const normalizedCourses: Course[] = courseList.map((c) => {
+          const facultiesRaw = (c as { faculties?: unknown }).faculties;
+          const faculties: Faculty[] = Array.isArray(facultiesRaw)
+            ? facultiesRaw.map((f) => {
+                const obj = f as Record<string, unknown>;
+                return {
+                  facultyId: typeof obj.facultyId === 'string' ? obj.facultyId : '',
+                  facultyName: typeof obj.facultyName === 'string' ? obj.facultyName : '',
+                  email: typeof obj.email === 'string' ? obj.email : undefined,
+                  designation: typeof obj.designation === 'string' ? obj.designation : undefined,
+                };
+              })
+            : [];
+          const obj = c as Record<string, unknown>;
+          return {
+            section: typeof obj.section === 'string' ? obj.section : '',
+            semester: typeof obj.semester === 'string' ? obj.semester : '',
+            branchId: typeof obj.branchId === 'string' ? obj.branchId : '',
+            courseId: typeof obj.courseId === 'string' ? obj.courseId : '',
+            courseName: typeof obj.courseName === 'string' ? obj.courseName : '',
+            credits: typeof obj.credits === 'string' ? obj.credits : undefined,
+            faculties,
+          };
+        });
         // Log faculty details for each course
-        courseList.forEach(course => {
+        normalizedCourses.forEach(course => {
           console.log(`Course: ${course.courseName} (${course.courseId}) faculties:`, course.faculties);
         });
-        setCourses(courseList);
-        setSelectedCourse(courseList.length > 0 ? courseList[0] : null);
-        setSelectedFaculty(courseList.length > 0 && courseList[0].faculties.length > 0 ? courseList[0].faculties[0] : null);
+        setCourses(normalizedCourses);
+        setSelectedCourse(normalizedCourses.length > 0 ? normalizedCourses[0] : null);
+        setSelectedFaculty(normalizedCourses.length > 0 && normalizedCourses[0].faculties.length > 0 ? normalizedCourses[0].faculties[0] : null);
       } catch (err) {
         console.error('getStudentCourses error:', err);
         setCourses([]);
@@ -279,31 +322,40 @@ useEffect(() => {
       const payload = {
         courseId: selectedCourse.courseId,
         facultyId: selectedFaculty?.facultyId,
+        branchId: selectedCourse.branchId || "",
+        section: selectedCourse.section || "",
+        semester: selectedCourse.semester || "",
         phase1: {
           ...phase1Ratings,
-          remark: phaseState.phase1.remark,
         },
+        phase1Remark: phaseState.phase1.remark,
       };
-      console.log('[DEBUG] Submitting Phase 1 payload:', payload);
       await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
-      const facultyId = selectedFaculty?.facultyId || "";
-      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, facultyId, idToken) as FeedbackStatusResponse;
-      if (feedback) {
-        setPhaseState({
-          phase1: {
-            ratings: extractRatings(feedback.phase1),
-            remark: feedback.phase1Remark || (feedback.phase1 && typeof feedback.phase1 === 'object' && 'remark' in feedback.phase1 ? (feedback.phase1.remark as string) : ""),
-          },
-          phase2: {
-            ratings: extractRatings(feedback.phase2),
-            remark: feedback.phase2Remark || (feedback.phase2 && typeof feedback.phase2 === 'object' && 'remark' in feedback.phase2 ? (feedback.phase2.remark as string) : ""),
-          },
-        });
-        setPhase1AlreadySubmitted(!!feedback.phase1);
-        setPhase2AlreadySubmitted(!!feedback.phase2);
+      // Re-fetch feedback status using the same logic as the main useEffect
+      const token = idToken;
+      const feedbackStatus = await getStudentFeedbackByCourse(selectedCourse.courseId, selectedFaculty?.facultyId || "", token);
+      // Use the same type guard and state update as in useEffect
+      type BackendFeedback = {
+        submitted?: boolean;
+        phase1?: { ratings?: Record<string, number>; remark?: string } | null;
+        phase2?: { ratings?: Record<string, number>; remark?: string } | null;
+      };
+      function isBackendFeedback(obj: unknown): obj is BackendFeedback {
+        return (
+          typeof obj === 'object' && obj !== null &&
+          ('submitted' in obj || 'phase1' in obj || 'phase2' in obj)
+        );
       }
+      const fb: BackendFeedback = isBackendFeedback(feedbackStatus) ? feedbackStatus : {};
+      setPhaseState(prev => ({
+        ...prev,
+        phase1: fb.phase1 && typeof fb.phase1.ratings === 'object'
+          ? { ratings: extractRatings(fb.phase1.ratings), remark: fb.phase1.remark || "" }
+          : { ratings: {}, remark: "" },
+      }));
+      setPhase1AlreadySubmitted(!!(fb.submitted && fb.phase1));
       window.alert("Phase 1 feedback submitted.");
     } catch {
       setIsSubmitting(false);
@@ -328,31 +380,40 @@ useEffect(() => {
       const payload = {
         courseId: selectedCourse.courseId,
         facultyId: selectedFaculty?.facultyId,
+        branchId: selectedCourse.branchId || "",
+        section: selectedCourse.section || "",
+        semester: selectedCourse.semester || "",
         phase2: {
           ...phase2Ratings,
-          remark: phaseState.phase2.remark,
         },
+        phase2Remark: phaseState.phase2.remark,
       };
-      console.log('[DEBUG] Submitting Phase 2 payload:', payload);
       await submitStudentFeedback(payload, idToken);
       setIsSubmitting(false);
       await new Promise((resolve) => setTimeout(resolve, 600));
-      const facultyId = selectedFaculty?.facultyId || "";
-      const feedback = await getStudentFeedbackByCourse(selectedCourse.courseId, facultyId, idToken) as FeedbackStatusResponse;
-      if (feedback) {
-        setPhaseState({
-          phase1: {
-            ratings: extractRatings(feedback.phase1),
-            remark: feedback.phase1Remark || (feedback.phase1 && typeof feedback.phase1 === 'object' && 'remark' in feedback.phase1 ? (feedback.phase1.remark as string) : ""),
-          },
-          phase2: {
-            ratings: extractRatings(feedback.phase2),
-            remark: feedback.phase2Remark || (feedback.phase2 && typeof feedback.phase2 === 'object' && 'remark' in feedback.phase2 ? (feedback.phase2.remark as string) : ""),
-          },
-        });
-        setPhase1AlreadySubmitted(!!feedback.phase1);
-        setPhase2AlreadySubmitted(!!feedback.phase2);
+      // Re-fetch feedback status using the same logic as the main useEffect
+      const token = idToken;
+      const feedbackStatus = await getStudentFeedbackByCourse(selectedCourse.courseId, selectedFaculty?.facultyId || "", token);
+      // Use the same type guard and state update as in useEffect
+      type BackendFeedback = {
+        submitted?: boolean;
+        phase1?: { ratings?: Record<string, number>; remark?: string } | null;
+        phase2?: { ratings?: Record<string, number>; remark?: string } | null;
+      };
+      function isBackendFeedback(obj: unknown): obj is BackendFeedback {
+        return (
+          typeof obj === 'object' && obj !== null &&
+          ('submitted' in obj || 'phase1' in obj || 'phase2' in obj)
+        );
       }
+      const fb: BackendFeedback = isBackendFeedback(feedbackStatus) ? feedbackStatus : {};
+      setPhaseState(prev => ({
+        ...prev,
+        phase2: fb.phase2 && typeof fb.phase2.ratings === 'object'
+          ? { ratings: extractRatings(fb.phase2.ratings), remark: fb.phase2.remark || "" }
+          : { ratings: {}, remark: "" },
+      }));
+      setPhase2AlreadySubmitted(!!(fb.submitted && fb.phase2));
       window.alert("Phase 2 feedback submitted.");
     } catch {
       setIsSubmitting(false);
@@ -447,7 +508,7 @@ useEffect(() => {
                       value={selectedCourse?.courseId || ""}
                       onChange={e => {
                         const course = courses.find(c => c.courseId === e.target.value) || null;
-                        setSelectedCourse(course);
+                        setSelectedCourse(course ? course : null);
                       }}
                       className="w-full appearance-none rounded-2xl border border-white/20 bg-white/14 px-4 py-3 pr-11 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] outline-none transition focus:border-white/50 focus:bg-white/18 focus:ring-2 focus:ring-white/18"
                     >

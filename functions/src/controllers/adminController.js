@@ -1,147 +1,153 @@
-
-const { getAuth } = require("firebase-admin/auth");
 const { db } = require("../config/firebase");
 
-// NEW: Unified Admin Dashboard Analytics Endpoint
-// GET /api/admin/dashboard?branch=...&semester=...
-// Returns: { overview, faculty, courses, students, phases, alerts }
-async function getAdminDashboard(req, res) {
-  try {
-    const { branch, semester } = req.query;
-    // Fetch all data in one go
-    const [studentsSnap, facultiesSnap, coursesSnap, feedbackSnap] = await Promise.all([
-      db.collection("students").get(),
-      db.collection("faculties").get(),
-      db.collection("courses").get(),
-      db.collection("feedback").get()
-    ]);
+/* ----------------------------- */
+/* Classification (from document) */
+/* ----------------------------- */
 
-    // Build lookup maps
-    const studentMap = {};
-    studentsSnap.forEach(doc => { studentMap[doc.data().studentId] = doc.data(); });
-    const facultyMap = {};
-    facultiesSnap.forEach(doc => { facultyMap[doc.data().facultyId] = doc.data(); });
-    const courseMap = {};
-    coursesSnap.forEach(doc => { courseMap[doc.data().courseId] = doc.data(); });
-
-    // Containers
-    const facultyStats = {};
-    const courseStats = {};
-    const studentStats = {};
-    const phaseStats = {};
-    const studentSet = new Set();
-    let totalRatingSum = 0, totalRatingCount = 0;
-
-    // Filter helpers
-    function feedbackMatchesFilters(f) {
-      let course = courseMap[f.courseId];
-      if (branch && course && course.branchId && course.branchId !== branch) return false;
-      if (semester && course && course.semester && course.semester !== semester) return false;
-      return true;
-    }
-
-    // Iterate feedbacks
-    feedbackSnap.forEach(doc => {
-      const f = doc.data();
-      if (!f.studentId || !f.courseId || !f.facultyId) return;
-      if (!feedbackMatchesFilters(f)) return;
-
-      // Student tracking
-      studentSet.add(f.studentId);
-      studentStats[f.studentId] = (studentStats[f.studentId] || 0) + 1;
-
-      // Ratings
-      let ratings = [];
-      if (f.phase1) for (let i = 1; i <= 9; i++) if (typeof f.phase1[`q${i}`] === 'number') ratings.push(f.phase1[`q${i}`]);
-      if (f.phase2) for (let i = 1; i <= 11; i++) if (typeof f.phase2[`q${i}`] === 'number') ratings.push(f.phase2[`q${i}`]);
-      const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
-      if (avg > 0) {
-        totalRatingSum += avg;
-        totalRatingCount++;
-      }
-
-      // Faculty aggregation
-      if (!facultyStats[f.facultyId]) facultyStats[f.facultyId] = { total: 0, count: 0 };
-      facultyStats[f.facultyId].total += avg;
-      facultyStats[f.facultyId].count++;
-
-      // Course aggregation
-      if (!courseStats[f.courseId]) courseStats[f.courseId] = { total: 0, count: 0 };
-      courseStats[f.courseId].total += avg;
-      courseStats[f.courseId].count++;
-
-      // Phase tracking
-      if (!phaseStats[f.facultyId]) phaseStats[f.facultyId] = { p1Total: 0, p1Count: 0, p2Total: 0, p2Count: 0 };
-      if (f.phase1) {
-        let p1 = 0, c1 = 0;
-        for (let i = 1; i <= 9; i++) if (typeof f.phase1[`q${i}`] === 'number') { p1 += f.phase1[`q${i}`]; c1++; }
-        if (c1 > 0) { phaseStats[f.facultyId].p1Total += p1 / c1; phaseStats[f.facultyId].p1Count++; }
-      }
-      if (f.phase2) {
-        let p2 = 0, c2 = 0;
-        for (let i = 1; i <= 11; i++) if (typeof f.phase2[`q${i}`] === 'number') { p2 += f.phase2[`q${i}`]; c2++; }
-        if (c2 > 0) { phaseStats[f.facultyId].p2Total += p2 / c2; phaseStats[f.facultyId].p2Count++; }
-      }
-    });
-
-    // Overview
-    const totalStudents = studentsSnap.size;
-    const participatedStudents = studentSet.size;
-    const participationRate = totalStudents > 0 ? (participatedStudents / totalStudents) * 100 : 0;
-    const avgRating = totalRatingCount > 0 ? totalRatingSum / totalRatingCount : 0;
-
-    const overview = {
-      totalStudents,
-      participatedStudents,
-      participationRate: Number(participationRate.toFixed(2)),
-      avgRating: Number(avgRating.toFixed(2)),
-    };
-
-    // Faculty output
-    const faculty = Object.entries(facultyStats).map(([facultyId, stat]) => ({
-      facultyId,
-      facultyName: facultyMap[facultyId]?.facultyName || facultyId,
-      avg: stat.count > 0 ? Number((stat.total / stat.count).toFixed(2)) : 0,
-      count: stat.count
-    })).sort((a, b) => b.avg - a.avg);
-
-    // Course output
-    const courses = Object.entries(courseStats).map(([courseId, stat]) => ({
-      courseId,
-      courseName: courseMap[courseId]?.courseName || courseId,
-      avg: stat.count > 0 ? Number((stat.total / stat.count).toFixed(2)) : 0,
-      count: stat.count
-    })).sort((a, b) => b.avg - a.avg);
-
-    // Student analytics
-    const students = {
-      active: participatedStudents,
-      inactive: totalStudents - participatedStudents,
-      activityMap: studentStats
-    };
-
-    // Phase comparison
-    const phases = Object.entries(phaseStats).map(([facultyId, stat]) => ({
-      facultyId,
-      facultyName: facultyMap[facultyId]?.facultyName || facultyId,
-      phase1Avg: stat.p1Count > 0 ? Number((stat.p1Total / stat.p1Count).toFixed(2)) : null,
-      phase2Avg: stat.p2Count > 0 ? Number((stat.p2Total / stat.p2Count).toFixed(2)) : null
-    }));
-
-    // Alerts
-    const alerts = {
-      lowFaculty: faculty.filter(f => f.avg < 2.5),
-      lowCourses: courses.filter(c => c.avg < 2.5),
-      lowParticipation: participationRate < 50 ? [{ participationRate: Number(participationRate.toFixed(2)) }] : []
-    };
-
-    return res.status(200).json({ overview, faculty, courses, students, phases, alerts });
-  } catch (error) {
-    console.error("Admin dashboard error:", error);
-    return res.status(500).json({ error: error.message });
-  }
+function classify(p) {
+  if (p > 95) return "Outstanding";
+  if (p > 90) return "Excellent";
+  if (p > 85) return "Very Good";
+  if (p > 80) return "Good";
+  if (p > 75) return "Satisfactory";
+  return "Needs Improvement";
 }
 
-module.exports = {
-  getAdminDashboard,
+/* ----------------------------- */
+/* Reverse scoring */
+/* ----------------------------- */
+
+function reverse(score) {
+  return 6 - score;
+}
+
+/* ----------------------------- */
+/* MAIN ADMIN REPORT API */
+/* ----------------------------- */
+
+exports.getAdminReport = async (req, res) => {
+  try {
+    const {
+      branchId,
+      semester,
+      section,
+      phase = "1",
+      fromDate,
+      toDate,
+      view = "department"
+    } = req.query;
+
+    if (!branchId) {
+      return res.status(400).json({ error: "branchId required" });
+    }
+
+    let query = db.collection("feedback");
+    // Dynamically build Firestore query based on provided filters
+    if (branchId) {
+      query = query.where("branchId", "==", branchId);
+    }
+    if (semester) {
+      query = query.where("semester", "==", semester);
+    }
+    if (section) {
+      query = query.where("section", "==", section);
+    }
+
+    const feedbackSnap = await query.get();
+
+    if (feedbackSnap.empty) {
+      return res.json({ results: [] });
+    }
+
+    const map = new Map();
+
+    feedbackSnap.forEach(doc => {
+      const f = doc.data();
+
+      // DATE FILTER (robust for Firestore Timestamp or string)
+      let submitted;
+      if (fromDate || toDate) {
+        submitted = f.submittedAt?.toDate
+          ? f.submittedAt.toDate()
+          : new Date(f.submittedAt);
+        if (fromDate && submitted < new Date(fromDate)) return;
+        if (toDate && submitted > new Date(toDate)) return;
+      }
+
+      const key = `${f.courseId}_${f.facultyId}`;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          courseId: f.courseId,
+          facultyId: f.facultyId,
+          responses: []
+        });
+      }
+
+      const phaseData = phase === "1" ? f.phase1 : f.phase2;
+      if (!phaseData) return;
+
+      const maxQ = phase === "1" ? 9 : 11;
+
+      let total = 0;
+      let count = 0;
+
+      for (let i = 1; i <= maxQ; i++) {
+        let val = phaseData[`q${i}`];
+        if (val == null) continue;
+        if ((phase === "1" && i === 9) || (phase === "2" && i === 11)) {
+          val = reverse(val);
+        }
+        total += val;
+        count++;
+      }
+
+      if (count === 0) return;
+      const avg = total / count;
+      map.get(key).responses.push(avg);
+    });
+
+    const [facultySnap, courseSnap] = await Promise.all([
+      db.collection("faculties").get(),
+      db.collection("courses").get()
+    ]);
+
+    const facultyMap = new Map();
+    const courseMap = new Map();
+
+    facultySnap.forEach(doc => {
+      const f = doc.data();
+      facultyMap.set(f.facultyId, f);
+    });
+
+    courseSnap.forEach(doc => {
+      const c = doc.data();
+      courseMap.set(c.courseId, c);
+    });
+
+    const results = [];
+
+    map.forEach(value => {
+      const avg =
+        value.responses.reduce((a, b) => a + b, 0) /
+        value.responses.length;
+      const percentage = avg * 20;
+      const faculty = facultyMap.get(value.facultyId);
+      const course = courseMap.get(value.courseId);
+      results.push({
+        facultyId: value.facultyId,
+        facultyName: faculty?.facultyName || "",
+        courseId: value.courseId,
+        courseName: course?.courseName || "",
+        avgScore: Number(avg.toFixed(2)),
+        percentage: Math.round(percentage),
+        category: classify(percentage)
+      });
+    });
+
+    return res.json({ results });
+  } catch (error) {
+    console.error("Admin report error:", error);
+    return res.status(500).json({ error: error.message });
+  }
 };

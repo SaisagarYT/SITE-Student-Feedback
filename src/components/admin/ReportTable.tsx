@@ -43,7 +43,7 @@ export default function ReportTable({ data, loading }: ReportTableProps) {
                   <td className="p-2">{i + 1}</td>
                   <td className="p-2">{row.facultyName}</td>
                   <td className="p-2">{row.courseName}</td>
-                  <td className="p-2">{row.avgScore.toFixed(2)}</td>
+                  <td className="p-2">{typeof row.avgScore === 'number' ? row.avgScore.toFixed(2) : '-'}</td>
                   <td className="p-2">{row.percentage}%</td>
                   <td className="p-2 font-semibold">{row.category}</td>
                 </tr>

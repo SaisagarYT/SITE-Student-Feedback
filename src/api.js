@@ -1,9 +1,11 @@
 // Unified admin dashboard analytics API fetcher
 // Use this for all dashboard analytics in the frontend
 
-export async function getAdminDashboardOverview() {
-  const response = await fetch(`${BASE_URL}/api/admin/dashboard`);
-  if (!response.ok) throw new Error('Failed to fetch dashboard overview');
+// Correct admin report fetcher for dashboard table
+export async function getAdminReport(params) {
+  const query = new URLSearchParams(params).toString();
+  const response = await fetch(`${BASE_URL}/api/admin/report?${query}`);
+  if (!response.ok) throw new Error("Failed to fetch report");
   return response.json();
 }
 /**

@@ -23,7 +23,7 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
   return (
     <div className="bg-white p-3 rounded shadow flex flex-wrap gap-3 mb-3">
       <select
-        className="border p-2 rounded min-w-[120px]"
+        className="border p-2 rounded min-w-30"
         value={filters.branchId}
         onChange={e => setFilters(f => ({ ...f, branchId: e.target.value }))}
       >
@@ -32,7 +32,7 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         <option value="ECE">ECE</option>
       </select>
       <select
-        className="border p-2 rounded min-w-[100px]"
+        className="border p-2 rounded min-w-25"
         value={filters.section}
         onChange={e => setFilters(f => ({ ...f, section: e.target.value }))}
       >
@@ -41,16 +41,22 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         <option value="B">B</option>
       </select>
       <select
-        className="border p-2 rounded min-w-[100px]"
+        className="border p-2 rounded min-w-25"
         value={filters.semester}
         onChange={e => setFilters(f => ({ ...f, semester: e.target.value }))}
       >
         <option value="">Semester</option>
-        <option value="6">6</option>
-        <option value="5">5</option>
+        <option value="I-I">I-I</option>
+        <option value="I-II">I-II</option>
+        <option value="II-I">II-I</option>
+        <option value="II-II">II-II</option>
+        <option value="III-I">III-I</option>
+        <option value="III-II">III-II</option>
+        <option value="IV-I">IV-I</option>
+        <option value="IV-II">IV-II</option>
       </select>
       <select
-        className="border p-2 rounded min-w-[100px]"
+        className="border p-2 rounded min-w-25"
         value={filters.phase}
         onChange={e => setFilters(f => ({ ...f, phase: e.target.value }))}
       >

@@ -1,7 +1,7 @@
 // ...existing code up to the first closing return ...
 // Remove everything after the first closing return (including duplicate imports and function)
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { getAdminReport } from "../../../api";
 import FilterBar from "../../../components/admin/FilterBar";
 import Tabs from "../../../components/admin/Tabs";
 import ReportHeader from "../../../components/admin/ReportHeader";
@@ -11,8 +11,8 @@ import AdminNavbar from "../../../components/admin/AdminNavbar";
 
 export default function AdminDashboard() {
   const [filters, setFilters] = useState({
-    branchId: "",
-    section: "",
+    branchId: "ECE",
+    section: "A",
     semester: "",
     phase: "1",
     fromDate: "",
@@ -25,10 +25,9 @@ export default function AdminDashboard() {
   const fetchReport = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("/api/admin/report", {
-        params: { ...filters, view: tab }
-      });
-      setData(res.data.results || []);
+      const res = await getAdminReport({ ...filters, view: tab });
+      console.log("Backend report data:", res);
+      setData(res.results || []);
     } catch {
       setData([]);
     } finally {
@@ -38,7 +37,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (filters.branchId && filters.semester) {
+      if (filters.branchId) {
         fetchReport();
       }
     }, 400);

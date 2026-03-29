@@ -78,7 +78,7 @@ function transformData(collectionName, row) {
         email: row["Email"],
         branchId: row["Branch Id"],
         section: row["Section"],
-        semester: Number(row["Semester"])
+        semester: row["Semester"] // ✅ FIXED (STRING)
       };
 
     case "faculties":
@@ -97,8 +97,8 @@ function transformData(collectionName, row) {
         courseName: row["Course Name"],
         branchId: row["Branch Id"],
         facultyId: row["Faculty Id"],
-        semester: Number(row["Semester"]),
-        credits: Number(row["Credits"])
+        semester: row["Semester"], // ✅ FIXED (STRING)
+        credits: Number(row["Credits"]) || 0
       };
 
     default:
@@ -137,10 +137,12 @@ function importCollection({ name, file }) {
 
             const cleanData = transformData(name, row);
 
-            // AUTO-GENERATED ID
-            const docRef = db.collection(name).doc();
+            // Skip invalid rows
+            if (!cleanData) continue;
 
+            const docRef = db.collection(name).doc(); // auto ID
             batch.set(docRef, cleanData);
+
             counter++;
 
             if (counter === batchSize) {
@@ -172,7 +174,6 @@ function importCollection({ name, file }) {
 
 (async () => {
   try {
-
     console.log("Starting import...");
 
     for (const col of collections) {

@@ -11,7 +11,7 @@ exports.submitFeedback = async (req, res) => {
       req.headers["authorization"]?.replace("Bearer ", "") ||
       req.body.idToken;
 
-    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark } =
+    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark, branchId } =
       req.body;
 
     if (!idToken || !courseId || !facultyId) {
@@ -33,10 +33,33 @@ exports.submitFeedback = async (req, res) => {
     }
 
 
-    const studentId = studentSnap.docs[0].data().studentId;
+    const studentDoc = studentSnap.docs[0].data();
+    const studentId = studentDoc.studentId;
+    // Fetch section and semester from student document
+    const section = typeof studentDoc.section === 'string' ? studentDoc.section : '';
+    const semester = typeof studentDoc.semester === 'string' ? studentDoc.semester : '';
 
-    // ✅ FIXED: include facultyId
-    const feedbackId = `${studentId}_${courseId}_${facultyId}`;
+
+    // Determine phase and set feedbackId accordingly
+    let phase = null;
+    let phaseData = null;
+    let phaseRemark = null;
+    let maxQ = 0;
+    if (phase1) {
+      phase = 'p1';
+      phaseData = phase1;
+      phaseRemark = phase1Remark;
+      maxQ = 9;
+    } else if (phase2) {
+      phase = 'p2';
+      phaseData = phase2;
+      phaseRemark = phase2Remark;
+      maxQ = 11;
+    }
+    if (!phase) {
+      return res.status(400).json({ error: "No phase1 or phase2 data provided" });
+    }
+    const feedbackId = `${studentId}_${courseId}_${facultyId}_${phase}`;
     console.log(`[submitFeedback] feedbackId: ${feedbackId}`);
 
     const feedbackRef = db.collection("feedback").doc(feedbackId);
@@ -50,8 +73,14 @@ exports.submitFeedback = async (req, res) => {
           studentId,
           courseId,
           facultyId,
+          phase,
           submittedAt: new Date().toISOString(),
         };
+
+    // Always store branchId from request, section and semester from student doc
+    if (typeof branchId === 'string') feedbackData.branchId = branchId;
+    feedbackData.section = section;
+    feedbackData.semester = semester;
 
     // Validate helper
     const validatePhase = (phase, count) => {
@@ -63,29 +92,23 @@ exports.submitFeedback = async (req, res) => {
       return true;
     };
 
-    // Phase 1
-    if (phase1) {
-      if (!validatePhase(phase1, 9)) {
-        return res.status(400).json({ error: "Invalid phase1" });
-      }
 
-      feedbackData.phase1 = {
-        ...phase1,
-        remark: phase1Remark || "",
-      };
+    // Validate phase data
+    if (!validatePhase(phaseData, maxQ)) {
+      return res.status(400).json({ error: `Invalid ${phase}` });
     }
-
-    // Phase 2
-    if (phase2) {
-      if (!validatePhase(phase2, 11)) {
-        return res.status(400).json({ error: "Invalid phase2" });
-      }
-
-      feedbackData.phase2 = {
-        ...phase2,
-        remark: phase2Remark || "",
-      };
+    // Use remark from phaseData.remark if phaseRemark is not provided
+    let remark = "";
+    if (typeof phaseRemark === 'string' && phaseRemark.trim() !== "") {
+      remark = phaseRemark;
+    } else if (phaseData && typeof phaseData.remark === 'string') {
+      remark = phaseData.remark;
     }
+    const { remark: _omit, ...phaseWithoutRemark } = phaseData;
+    feedbackData.ratings = {
+      ...phaseWithoutRemark,
+      remark,
+    };
 
     await feedbackRef.set(feedbackData);
 
@@ -128,23 +151,21 @@ exports.checkFeedbackStatus = async (req, res) => {
 
     const studentId = studentSnap.docs[0].data().studentId;
 
-    // ✅ faculty-based check
-    const feedbackId = `${studentId}_${courseId}_${facultyId}`;
-    console.log(`[checkFeedbackStatus] feedbackId: ${feedbackId}`);
+    // Check both phase 1 and phase 2 feedback documents
+    const feedbackIdP1 = `${studentId}_${courseId}_${facultyId}_p1`;
+    const feedbackIdP2 = `${studentId}_${courseId}_${facultyId}_p2`;
+    console.log(`[checkFeedbackStatus] feedbackIdP1: ${feedbackIdP1}`);
+    console.log(`[checkFeedbackStatus] feedbackIdP2: ${feedbackIdP2}`);
 
-    const feedbackDoc = await db.collection("feedback").doc(feedbackId).get();
-    console.log(`[checkFeedbackStatus] feedbackDoc.exists: ${feedbackDoc.exists}`);
-
-    if (!feedbackDoc.exists) {
-      return res.json({ submitted: false });  
-    }
-
-    const feedback = feedbackDoc.data();
+    const [doc1, doc2] = await Promise.all([
+      db.collection("feedback").doc(feedbackIdP1).get(),
+      db.collection("feedback").doc(feedbackIdP2).get()
+    ]);
 
     return res.json({
-      submitted: true,
-      phase1: feedback.phase1 || null,
-      phase2: feedback.phase2 || null,
+      submitted: doc1.exists || doc2.exists,
+      phase1: doc1.exists ? doc1.data() : null,
+      phase2: doc2.exists ? doc2.data() : null,
     });
   } catch (error) {
     console.error(error);
