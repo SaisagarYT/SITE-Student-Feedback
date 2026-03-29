@@ -25,8 +25,8 @@ export default function ReportTable({ data, loading }: ReportTableProps) {
               <th className="p-2">S.No</th>
               <th className="p-2">Faculty</th>
               <th className="p-2">Course</th>
-              <th className="p-2">Avg</th>
-              <th className="p-2">%</th>
+              <th className="p-2">Avg Rating</th>
+              <th className="p-2">Percentage</th>
               <th className="p-2">Category</th>
             </tr>
           </thead>

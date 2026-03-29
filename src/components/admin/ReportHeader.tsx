@@ -21,11 +21,12 @@ export default function ReportHeader({ filters }: ReportHeaderProps) {
         <span><b>Dept:</b> {filters.branchId || "-"}</span>
         <span><b>Section:</b> {filters.section || "-"}</span>
         <span><b>Semester:</b> {filters.semester || "-"}</span>
-        <span><b>Date:</b> {
-          filters.fromDate || filters.toDate
+        <span>
+          <b>Date:</b>{" "}
+          {filters.fromDate || filters.toDate
             ? `${filters.fromDate}${filters.toDate ? ` - ${filters.toDate}` : ""}`
-            : "-"
-        }</span>
+            : "-"}
+        </span>
       </div>
     </div>
   );
