@@ -11,7 +11,7 @@ exports.submitFeedback = async (req, res) => {
       req.headers["authorization"]?.replace("Bearer ", "") ||
       req.body.idToken;
 
-    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark, branchId } =
+    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark } =
       req.body;
 
     if (!idToken || !courseId || !facultyId) {
@@ -35,7 +35,8 @@ exports.submitFeedback = async (req, res) => {
 
     const studentDoc = studentSnap.docs[0].data();
     const studentId = studentDoc.studentId;
-    // Fetch section and semester from student document
+    // Fetch branchId, section, and semester from student document
+    const branchId = typeof studentDoc.branchId === 'string' ? studentDoc.branchId : '';
     const section = typeof studentDoc.section === 'string' ? studentDoc.section : '';
     const semester = typeof studentDoc.semester === 'string' ? studentDoc.semester : '';
 
@@ -77,8 +78,8 @@ exports.submitFeedback = async (req, res) => {
           submittedAt: new Date().toISOString(),
         };
 
-    // Always store branchId from request, section and semester from student doc
-    if (typeof branchId === 'string') feedbackData.branchId = branchId;
+    // Always store branchId, section, and semester from student doc
+    feedbackData.branchId = branchId;
     feedbackData.section = section;
     feedbackData.semester = semester;
 

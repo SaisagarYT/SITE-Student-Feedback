@@ -28,8 +28,18 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         onChange={e => setFilters(f => ({ ...f, branchId: e.target.value }))}
       >
         <option value="">Department</option>
+        <option value="CSE">CSE</option>
         <option value="IT">IT</option>
         <option value="ECE">ECE</option>
+        <option value="EEE">EEE</option>
+        <option value="MECH">MECH</option>
+        <option value="CIVIL">CIVIL</option>
+        <option value="AIDS">AIDS</option>
+        <option value="AIML">AIML</option>
+        <option value="CSM">CSM</option>
+        <option value="CSD">CSD</option>
+        <option value="CIC">CIC</option>
+        <option value="CST">CST</option>
       </select>
       <select
         className="border p-2 rounded min-w-25"

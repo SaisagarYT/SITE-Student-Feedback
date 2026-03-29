@@ -46,6 +46,8 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, tab]);
 
+  // No polling: data reloads only on filter/tab change or manual refresh
+
   // Sort: theory subjects first, then lab subjects
   const sortedData = Array.isArray(data)
     ? [...data].sort((a, b) => {
