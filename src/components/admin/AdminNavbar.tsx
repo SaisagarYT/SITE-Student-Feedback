@@ -16,7 +16,8 @@ function ProfileCard({ user, profileImage }: { user: User | null; profileImage: 
         className="h-9 w-9 rounded-full object-cover ring-2 ring-(--line)"
         priority
       />
-      <div className="flex flex-col items-start min-w-0">
+      {/* Hide name and email in print view */}
+      <div className="flex flex-col items-start min-w-0 print:hidden">
         <span className="font-semibold truncate max-w-27.5 text-(--ink)">{user.displayName || "No Name"}</span>
         <span className="truncate max-w-27.5 text-(--muted)">{user.email || "No Email"}</span>
       </div>
@@ -48,6 +49,7 @@ const AdminNavbar = () => {
     <header data-reveal>
       <div className="border-b border-(--line) bg-(--surface) text-(--ink)">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          {/* Logo always visible */}
           <div className="flex items-center gap-3">
             <Image
               src="/sasi_logo.png"
@@ -58,12 +60,14 @@ const AdminNavbar = () => {
               className="h-12 w-auto object-contain sm:h-15 md:h-15 lg:h-18"
               priority
             />
-            <div className="hidden items-center gap-2 rounded-full border border-(--line) bg-(--surface-soft) px-3 py-2 text-sm text-(--muted) sm:inline-flex">
+            {/* Hide admin panel in print view */}
+            <div className="hidden items-center gap-2 rounded-full border border-(--line) bg-(--surface-soft) px-3 py-2 text-sm text-(--muted) sm:inline-flex print:hidden">
               <Icon icon="material-symbols:admin-panel-settings-outline" className="text-lg text-(--brand)" />
               Admin Panel
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Hide profile and right section in print view */}
+          <div className="flex items-center gap-2 sm:gap-3 print:hidden">
             <ProfileCard user={user} profileImage={profileImage} />
             <button
               onClick={async () => {

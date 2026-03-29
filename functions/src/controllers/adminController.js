@@ -113,7 +113,8 @@ const getAdminReport = async (req, res) => {
           courseId: f.courseId,
           facultyId: f.facultyId,
           responses: [],
-          submissions: 0
+          submissions: 0,
+          perQuestion: {},
         });
       }
 
@@ -136,6 +137,11 @@ const getAdminReport = async (req, res) => {
 
         total += val;
         count++;
+
+        // Per-question aggregation
+        const pq = map.get(key).perQuestion;
+        if (!pq[`q${i}`]) pq[`q${i}`] = [];
+        pq[`q${i}`].push(val);
       }
 
       if (count === 0) return;
@@ -190,11 +196,28 @@ const getAdminReport = async (req, res) => {
       const faculty = facultyMap.get(value.facultyId);
       const course = courseMap.get(value.courseId);
 
+      // Per-question averages
+      const perQuestionAverages = {};
+      const pq = value.perQuestion || {};
+      Object.keys(pq).forEach(qKey => {
+        const arr = pq[qKey];
+        if (arr && arr.length > 0) {
+          perQuestionAverages[qKey] = Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2));
+        } else {
+          perQuestionAverages[qKey] = null;
+        }
+      });
+
+      // Classify course type using regex
+      const courseName = course?.courseName || "";
+      const type = /lab/i.test(courseName) ? "lab" : "theory";
+
       results.push({
         facultyId: value.facultyId,
         facultyName: faculty?.facultyName || "",
         courseId: value.courseId,
-        courseName: course?.courseName || "",
+        courseName,
+        type,
 
         avgScore: Number(avg.toFixed(2)),
         percentage: Math.round(percentage),
@@ -202,7 +225,9 @@ const getAdminReport = async (req, res) => {
 
         totalStudents,
         submitted: value.submissions,
-        submissionRate: Math.round(submissionRate)
+        submissionRate: Math.round(submissionRate),
+
+        perQuestionAverages
       });
     });
 
