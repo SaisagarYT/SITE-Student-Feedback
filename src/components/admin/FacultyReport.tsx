@@ -94,7 +94,7 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
           }}
         />
         <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 18, marginTop: 4 }}>
-          Academic year {academicYear}
+          Academic Tear {academicYear}
         </div>
         <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 20, margin: '4px 0' }}>
           Student Feedback Analysis

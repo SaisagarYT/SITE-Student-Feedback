@@ -4,7 +4,9 @@
 // Correct admin report fetcher for dashboard table
 export async function getAdminReport(params) {
   const query = new URLSearchParams(params).toString();
-  const response = await fetch(`${BASE_URL}/api/admin/report?${query}`);
+  const response = await fetch(`${BASE_URL}/api/admin/report?${query}`, {
+    credentials: "include"
+  });
   if (!response.ok) throw new Error("Failed to fetch report");
   return response.json();
 }
@@ -13,7 +15,9 @@ export async function getAdminReport(params) {
  * @returns {Promise<boolean>} true if phase2 is active, false otherwise
  */
 export async function getPhase2Active() {
-  const response = await fetch(`${BASE_URL}/api/admin/phase-activation`);
+  const response = await fetch(`${BASE_URL}/api/admin/phase-activation`, {
+    credentials: "include"
+  });
   if (!response.ok) throw new Error("Failed to fetch phase2Active");
   const data = await response.json();
   return !!data.phase2Active;
@@ -32,7 +36,9 @@ export async function getCourseAnalytics(filters = {}) {
   if (filters.facultyName) params.append('facultyName', filters.facultyName);
   const url = `${BASE_URL}/api/admin/course-analytics${params.toString() ? '?' + params.toString() : ''}`;
   // Removed debug log as requested
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    credentials: "include"
+  });
   if (!response.ok) {
     console.error('[getCourseAnalytics] 404 or error:', response.status, response.statusText, url);
     throw new Error('Failed to fetch course analytics');
@@ -44,7 +50,9 @@ export async function getCourseAnalytics(filters = {}) {
  * @returns {Promise<Array>} Array of faculty performance objects
  */
 export async function getFacultyPerformance() {
-  const response = await fetch(`${BASE_URL}/api/admin/faculty-performance`);
+  const response = await fetch(`${BASE_URL}/api/admin/faculty-performance`, {
+    credentials: "include"
+  });
   if (!response.ok) throw new Error('Failed to fetch faculty performance');
   return response.json();
 }
@@ -55,7 +63,9 @@ export async function getFacultyPerformance() {
  * @returns {Promise<object>} Faculty detail analytics
  */
 export async function getFacultyDetail(facultyId) {
-  const response = await fetch(`${BASE_URL}/api/admin/faculty-detail/${encodeURIComponent(facultyId)}`);
+  const response = await fetch(`${BASE_URL}/api/admin/faculty-detail/${encodeURIComponent(facultyId)}`, {
+    credentials: "include"
+  });
   if (!response.ok) throw new Error('Failed to fetch faculty detail');
   return response.json();
 }
@@ -68,6 +78,7 @@ export async function logoutAdmin(idToken) {
   const response = await fetch(`${BASE_URL}/api/admin/logout`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ idToken }),
   });
   return response.json();
@@ -81,6 +92,7 @@ export async function loginAdmin(idToken) {
   const response = await fetch(`${BASE_URL}/api/admin/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ idToken }),
   });
   return response.json();

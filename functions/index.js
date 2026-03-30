@@ -1,10 +1,16 @@
-const {setGlobalOptions} = require("firebase-functions/v2/options");
-const {onRequest} = require("firebase-functions/v2/https");
+const { setGlobalOptions } = require("firebase-functions/v2/options");
+const { onRequest } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const app = require("./src/app");
 
-setGlobalOptions({maxInstances: 10});
+setGlobalOptions({ maxInstances: 10 });
+
+const jwtSecret = defineSecret("HTTP_FEEDBACK_SECRET");
 
 exports.feedback = onRequest(
-  {region: "asia-southeast1", cors: true},
-  app,
+  { region: "asia-southeast1", secrets: [jwtSecret] },
+  (req, res) => {
+    req.jwtSecret = jwtSecret.value();
+    app(req, res);
+  }
 );

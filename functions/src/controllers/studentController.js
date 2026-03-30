@@ -257,11 +257,8 @@ exports.getCourseFaculty = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
-/**
- * GET /api/student/courses
- * Returns courses for the student's branch and semester.
- * Expects idToken in query or header, or studentId in query.
- */
+
+
 exports.getStudentCourses = async (req, res) => {
   try {
     const idToken =
@@ -272,7 +269,6 @@ exports.getStudentCourses = async (req, res) => {
       return res.status(400).json({ error: "Missing idToken" });
     }
 
-    // STEP 1: Get student
     const decodedToken = await getAuth().verifyIdToken(idToken);
     const email = decodedToken.email;
 
@@ -289,7 +285,6 @@ exports.getStudentCourses = async (req, res) => {
     const student = studentSnap.docs[0].data();
     const { branchId, semester, name } = student;
 
-    // STEP 2: Get courses (auto-ID model)
     const coursesSnap = await db
       .collection("courses")
       .where("branchId", "==", branchId)
@@ -303,7 +298,6 @@ exports.getStudentCourses = async (req, res) => {
       });
     }
 
-    // STEP 3: Group courses + collect facultyIds
     const courseMap = new Map();
     const facultyIdSet = new Set();
 
@@ -328,7 +322,6 @@ exports.getStudentCourses = async (req, res) => {
       }
     }
 
-    // STEP 4: Fetch all faculties in bulk
     const facultyIds = Array.from(facultyIdSet);
     let facultyMap = new Map();
 
@@ -347,7 +340,6 @@ exports.getStudentCourses = async (req, res) => {
       });
     }
 
-    // STEP 5: Attach faculty details to courses
     const courses = [];
 
     for (const course of courseMap.values()) {
@@ -385,10 +377,7 @@ exports.getStudentCourses = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-/**
- * Explicit login endpoint for students.
- * Verifies idToken, checks if student exists, returns user data if found.
- */
+
 exports.loginStudent = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -396,24 +385,19 @@ exports.loginStudent = async (req, res) => {
       return res.status(400).json({ error: "Missing idToken" });
     }
 
-    // Verify the ID token with Firebase Admin
     const decodedToken = await getAuth().verifyIdToken(idToken);
     const email = decodedToken.email;
     if (!email) {
       return res.status(400).json({ error: "Invalid token: no email" });
     }
 
-    // Only allow sasi.ac.in emails
     if (!email.endsWith('@sasi.ac.in')) {
       return res.status(403).json({ error: "Only sasi.ac.in emails are allowed." });
     }
-    // Check if a student exists with this email
     const studentsSnap = await db.collection("students").where("email", "==", email).limit(1).get();
     if (!studentsSnap.empty) {
-      // User found, return user data
       return res.status(200).json({ user: studentsSnap.docs[0].data(), loggedIn: true });
     } else {
-      // User not found
       return res.status(404).json({ loggedIn: false, message: "User not found. Please register." });
     }
   } catch (error) {

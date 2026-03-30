@@ -1,18 +1,39 @@
+
+
+
 const { db } = require("../config/firebase");
 const { getAuth } = require("firebase-admin/auth");
-/**
- * POST /api/admin/logout
- * Logs out the admin (stateless, just a placeholder for frontend to clear session).
- */
+const jwt = require("jsonwebtoken");
+const { defineSecret } = require('firebase-functions/params');
+const { onRequest } = require('firebase-functions/v2/https');
+
+// Firebase parameterized secret for JWT (rename to JWT_SECRET for clarity)
+const jwtSecret = defineSecret('HTTP_FEEDBACK_SECRET'); // used for secret registration only
+
+// Middleware to verify admin JWT
+const verifyAdmin = async (req, res, next) => {
+  try {
+    const token = req.cookies && req.cookies.admin_token;
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const decoded = jwt.verify(token, req.jwtSecret);
+    if (decoded.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+};
+
 const logoutAdmin = async (req, res) => {
-  // In stateless JWT auth, logout is handled on the client by removing the token.
-  // This endpoint is just for symmetry and possible future use (e.g., token blacklist).
+
   return res.status(200).json({ success: true, message: "Logged out" });
 };
-/**
- * POST /api/admin/login
- * Verifies idToken, checks if admin exists, returns user data if found.
- */
+
+
 const loginAdmin = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -34,8 +55,23 @@ const loginAdmin = async (req, res) => {
     // Check if an admin exists with this email
     const adminsSnap = await db.collection("admins").where("email", "==", email).limit(1).get();
     if (!adminsSnap.empty) {
-      // User found, return user data
-      return res.status(200).json({ user: adminsSnap.docs[0].data(), loggedIn: true });
+      // User found, generate JWT
+      const user = adminsSnap.docs[0].data();
+      const payload = {
+        email: user.email,
+        role: "admin"
+      };
+      // 3 hours expiry
+      const token = jwt.sign(payload, req.jwtSecret, { expiresIn: "3h" });
+      // Set as httpOnly cookie with cross-site settings
+      res.cookie("admin_token", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 3 * 60 * 60 * 1000 // 3 hours
+      });
+      // Return token for debugging (remove later)
+      return res.status(200).json({ user, loggedIn: true, token });
     } else {
       // User not found
       return res.status(404).json({ loggedIn: false, message: "Admin not found. Please contact support." });
@@ -290,6 +326,7 @@ const getAdminReport = async (req, res) => {
 
 module.exports = {
   getAdminReport,
-  loginAdmin,
-  logoutAdmin
+  logoutAdmin,
+  verifyAdmin,
+  loginAdmin
 };

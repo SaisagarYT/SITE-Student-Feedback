@@ -122,7 +122,7 @@ const SectionReport: React.FC<SectionReportProps> = ({
           }}
         />
         <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 14, marginTop: 2 }}>
-          Academic year {academicYear}
+          Academic Year {academicYear}
         </div>
         <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 16, margin: '2px 0' }}>
           Student Feedback Analysis
