@@ -12,10 +12,24 @@ const app = express();
 app.use(cors({
 	origin: [
 		"http://localhost:3000",
-		"https://sasi-feedback-portal.web.app/"
+		"https://sasi-feedback-portal.web.app"
 	],
-	credentials: true
+	credentials: true,
+	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+	allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
+// Handle preflight requests for all routes
+// app.options("*", cors({
+// 	origin: [
+// 		"http://localhost:3000",
+// 		"https://sasi-feedback-portal.web.app"
+// 	],
+// 	credentials: true,
+// 	methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+// 	allowedHeaders: ["Content-Type", "Authorization"],
+// }));
+
 app.use(cookieParser());
 app.use(express.json());
 // app.use("/", feedbackRouter);

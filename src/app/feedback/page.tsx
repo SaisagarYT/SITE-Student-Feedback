@@ -1,10 +1,6 @@
 
 "use client";
-// Firestore feedback document type
-type FeedbackDoc = {
-  ratings?: Record<string, number>;
-  remark?: string;
-};
+
 // Helper to extract ratings from phase object
 function extractRatings(phaseObj: unknown): Record<string, number> {
   if (!phaseObj) return {};
@@ -307,7 +303,11 @@ useEffect(() => {
   };
   // Submit Phase 1 only
   const handleSubmitPhase1 = async () => {
-    if (!phase1Complete || !selectedCourse) return;
+        // Log payload for debugging
+
+        if (!selectedCourse || !selectedFaculty) return;
+
+    if (!phase1Complete || !selectedCourse || !selectedFaculty) return;
     setIsSubmitting(true);
     const auth = getAuth();
     const user = auth.currentUser;
@@ -370,7 +370,11 @@ useEffect(() => {
 
   // Submit Phase 2 only
   const handleSubmitPhase2 = async () => {
-    if (!phase2Complete || !selectedCourse) return;
+        // Log payload for debugging
+
+        if (!selectedCourse || !selectedFaculty) return;
+
+    if (!phase2Complete || !selectedCourse || !selectedFaculty) return;
     setIsSubmitting(true);
     const auth = getAuth();
     const user = auth.currentUser;

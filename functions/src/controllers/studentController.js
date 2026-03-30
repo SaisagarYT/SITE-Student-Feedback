@@ -11,11 +11,10 @@ exports.submitFeedback = async (req, res) => {
       req.headers["authorization"]?.replace("Bearer ", "") ||
       req.body.idToken;
 
-    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark } =
-      req.body;
+    const { courseId, facultyId, phase1, phase2, phase1Remark, phase2Remark } = req.body;
 
     if (!idToken || !courseId || !facultyId) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: "Missing required fields (courseId, facultyId)" });
     }
 
     // Get student
@@ -39,6 +38,31 @@ exports.submitFeedback = async (req, res) => {
     const branchId = typeof studentDoc.branchId === 'string' ? studentDoc.branchId : '';
     const section = typeof studentDoc.section === 'string' ? studentDoc.section : '';
     const semester = typeof studentDoc.semester === 'string' ? studentDoc.semester : '';
+    // Derive semType from semester (e.g., "III-I" is ODD, "III-II" is EVEN)
+    let semType = '';
+    if (typeof semester === 'string' && semester.trim() !== '') {
+      if (!/^[IVX]+-(I|II)$/.test(semester.trim())) {
+        return res.status(400).json({ error: "Invalid semester format. Use Roman numerals and -I or -II (e.g., III-I)" });
+      }
+      semType = semester.trim().endsWith('-I') ? 'ODD' : 'EVEN';
+    }
+
+    // Derive academicYear from current date and semester
+    // If semester ends with -I (ODD), academic year is currentYear-nextYear
+    // If semester ends with -II (EVEN), academic year is (currentYear-1)-currentYear
+    let academicYear = '';
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    if (semType === 'ODD') {
+      // e.g., 2025-26 for ODD semester in 2025
+      academicYear = `${currentYear}-${String((currentYear + 1) % 100).padStart(2, '0')}`;
+    } else if (semType === 'EVEN') {
+      // e.g., 2025-26 for EVEN semester in 2026
+      academicYear = `${currentYear - 1}-${String(currentYear % 100).padStart(2, '0')}`;
+    }
+    if (!/^\d{4}-\d{2}$/.test(academicYear)) {
+      return res.status(400).json({ error: "Failed to derive academicYear. Check semester and server date." });
+    }
 
 
     // Determine phase and set feedbackId accordingly
@@ -60,28 +84,13 @@ exports.submitFeedback = async (req, res) => {
     if (!phase) {
       return res.status(400).json({ error: "No phase1 or phase2 data provided" });
     }
-    const feedbackId = `${studentId}_${courseId}_${facultyId}_${phase}`;
-    console.log(`[submitFeedback] feedbackId: ${feedbackId}`);
-
+    const feedbackId = `${studentId}_${courseId}_${facultyId}_${academicYear}_${phase}`;
+    // Prevent duplicate submission (edge case)
     const feedbackRef = db.collection("feedback").doc(feedbackId);
-    const feedbackDoc = await feedbackRef.get();
-    console.log(`[submitFeedback] feedbackDoc.exists: ${feedbackDoc.exists}`);
-
-    let feedbackData = feedbackDoc.exists
-      ? feedbackDoc.data()
-      : {
-          feedbackId,
-          studentId,
-          courseId,
-          facultyId,
-          phase,
-          submittedAt: new Date().toISOString(),
-        };
-
-    // Always store branchId, section, and semester from student doc
-    feedbackData.branchId = branchId;
-    feedbackData.section = section;
-    feedbackData.semester = semester;
+    const existing = await feedbackRef.get();
+    if (existing.exists) {
+      return res.status(400).json({ error: "Already submitted" });
+    }
 
     // Validate helper
     const validatePhase = (phase, count) => {
@@ -92,7 +101,6 @@ exports.submitFeedback = async (req, res) => {
       }
       return true;
     };
-
 
     // Validate phase data
     if (!validatePhase(phaseData, maxQ)) {
@@ -106,9 +114,24 @@ exports.submitFeedback = async (req, res) => {
       remark = phaseData.remark;
     }
     const { remark: _omit, ...phaseWithoutRemark } = phaseData;
-    feedbackData.ratings = {
-      ...phaseWithoutRemark,
+
+    // Build the feedback document with all required fields
+    const feedbackData = {
+      feedbackId,
+      studentId,
+      courseId,
+      facultyId,
+      phase,
+      academicYear,
+      semType,
+      branchId,
+      section,
+      semester,
+      ratings: {
+        ...phaseWithoutRemark
+      },
       remark,
+      submittedAt: require("firebase-admin/firestore").FieldValue.serverTimestamp(),
     };
 
     await feedbackRef.set(feedbackData);
@@ -152,9 +175,24 @@ exports.checkFeedbackStatus = async (req, res) => {
 
     const studentId = studentSnap.docs[0].data().studentId;
 
-    // Check both phase 1 and phase 2 feedback documents
-    const feedbackIdP1 = `${studentId}_${courseId}_${facultyId}_p1`;
-    const feedbackIdP2 = `${studentId}_${courseId}_${facultyId}_p2`;
+
+    // Derive academicYear using the same logic as submitFeedback
+    const semester = studentSnap.docs[0].data().semester;
+    let semType = '';
+    if (typeof semester === 'string' && semester.trim() !== '') {
+      semType = semester.trim().endsWith('-I') ? 'ODD' : 'EVEN';
+    }
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    let academicYear = '';
+    if (semType === 'ODD') {
+      academicYear = `${currentYear}-${String((currentYear + 1) % 100).padStart(2, '0')}`;
+    } else if (semType === 'EVEN') {
+      academicYear = `${currentYear - 1}-${String(currentYear % 100).padStart(2, '0')}`;
+    }
+    // Check both phase 1 and phase 2 feedback documents with academicYear
+    const feedbackIdP1 = `${studentId}_${courseId}_${facultyId}_${academicYear}_p1`;
+    const feedbackIdP2 = `${studentId}_${courseId}_${facultyId}_${academicYear}_p2`;
     console.log(`[checkFeedbackStatus] feedbackIdP1: ${feedbackIdP1}`);
     console.log(`[checkFeedbackStatus] feedbackIdP2: ${feedbackIdP2}`);
 
