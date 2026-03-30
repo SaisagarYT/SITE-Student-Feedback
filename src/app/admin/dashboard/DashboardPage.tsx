@@ -12,6 +12,7 @@ import ReportTable, { ReportRow } from "../../../components/admin/ReportTable";
 import PrintButton from "../../../components/admin/PrintButton";
 import AdminNavbar from "../../../components/admin/AdminNavbar";
 import DepartmentReport from "../../../components/admin/DepartmentReport";
+import FacultyReport from "../../../components/admin/FacultyReport";
 import SectionReport from "../../../components/admin/SectionReport";
 import { feedbackPhases } from "../../../data/questions";
 
@@ -166,6 +167,25 @@ export default function AdminDashboard() {
                 category: row.category || "",
               })) : []}
             />
+          ) : tab === "department" ? (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <FacultyReport
+                academicYear="25-26"
+                program="B.Tech"
+                department={filters.branchId}
+                phase={filters.phase}
+                year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
+                semester={filters.semester || "ODD"}
+                rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => ({
+                  sNo: idx + 1,
+                  facultyName: row.facultyName || "",
+                  course: row.courseName || "",
+                  section: (typeof row === 'object' && 'section' in row && row.section) ? (row as any).section : filters.section,
+                  overallPercent: row.percentage != null ? row.percentage.toFixed(0) : "-",
+                  category: row.category || "",
+                })) : []}
+              />
+            </div>
           ) : (
             <>
               <ReportHeader filters={filters} />

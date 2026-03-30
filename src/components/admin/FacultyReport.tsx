@@ -1,68 +1,54 @@
 import React from "react";
 
-interface FacultyAnalysisRow {
+interface FacultyReportRow {
   sNo: number;
-  question: string;
-  overallRating: string | number;
+  facultyName: string;
+  course: string;
+  section: string;
   overallPercent: string | number;
+  category: string;
 }
 
-interface DepartmentReportProps {
+interface FacultyReportProps {
   academicYear: string;
   program: string;
-  year: string;
   department: string;
-  semester: string;
-  section: string;
   phase: string;
-  facultyRows: FacultyAnalysisRow[];
-  avgRating: string | number;
-  avgPercent: string | number;
+  year: string;
+  semester: string;
+  rows: FacultyReportRow[];
 }
 
-const DepartmentReport: React.FC<DepartmentReportProps> = ({
+const FacultyReport: React.FC<FacultyReportProps> = ({
+  academicYear,
   program,
-  year,
   department,
-  semester,
-  section,
   phase,
-  facultyRows,
-  avgRating,
-  avgPercent,
+  year,
+  semester,
+  rows = [],
 }) => {
-  // Helper to convert semester string to number if possible
   function getSemesterNumber(sem: string) {
-    // Map Roman numerals to numbers
     const romanMap: Record<string, number> = {
       'I': 1,
       'II': 2,
       'III': 3,
       'IV': 4,
     };
-    // Match patterns like 'III-II', 'II-I', etc.
     const match = sem.match(/^(I|II|III|IV)-(I|II)$/);
     if (match) {
       const year = romanMap[match[1]];
       const part = match[2] === 'I' ? 1 : 2;
-      // Semester number: (year - 1) * 2 + part
       return (year - 1) * 2 + part;
     }
     return sem;
   }
-
   return (
     <div
-      className="department-report-print w-full"
-      style={{ fontFamily: 'serif', color: '#222', padding: 24, background: '#fff', width: '100%' }}
+      className="faculty-report-print w-full"
+      style={{ fontFamily: 'serif', color: '#222', padding: '8mm', background: '#fff', width: '100%' }}
     >
       <style>{`
-        @media screen {
-          .department-report-print {
-            max-height: 80vh;
-            overflow-y: auto;
-          }
-        }
         @media print {
           @page {
             size: A4;
@@ -75,11 +61,11 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           body * {
             visibility: hidden;
           }
-          .department-report-print,
-          .department-report-print * {
+          .faculty-report-print,
+          .faculty-report-print * {
             visibility: visible;
           }
-          .department-report-print {
+          .faculty-report-print {
             width: 100%;
             max-width: 190mm;
             margin: auto;
@@ -108,7 +94,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           }}
         />
         <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 18, marginTop: 4 }}>
-          Academic year 2025-26
+          Academic year {academicYear}
         </div>
         <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 20, margin: '4px 0' }}>
           Student Feedback Analysis
@@ -124,36 +110,41 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
         <div>
           <div><b>Year:</b> {year}</div>
           <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
-          <div><b>Section:</b> {section}</div>
         </div>
       </div>
       {/* TABLE */}
       <div>
-        <div style={{ fontWeight: 600, margin: '16px 0 8px 0', fontSize: 16 }}>Faculty Individual Analysis</div>
+        <div style={{ fontWeight: 600, margin: '16px 0 8px 0', fontSize: 16 }}>Faculty Details</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
           <thead>
             <tr>
               <th style={{ border: '1px solid #222', padding: 6 }}>S.NO</th>
-              <th style={{ border: '1px solid #222', padding: 6 }}>Question</th>
-              <th style={{ border: '1px solid #222', padding: 6 }}>Overall Rating</th>
+              <th style={{ border: '1px solid #222', padding: 6 }}>Name of Faculty</th>
+              <th style={{ border: '1px solid #222', padding: 6 }}>Course</th>
+              <th style={{ border: '1px solid #222', padding: 6 }}>Section</th>
               <th style={{ border: '1px solid #222', padding: 6 }}>Overall %</th>
+              <th style={{ border: '1px solid #222', padding: 6 }}>Category</th>
+              <th style={{ border: '1px solid #222', padding: 6 }}>Signature</th>
             </tr>
           </thead>
           <tbody>
-            {facultyRows.map((row, idx) => (
-              <tr key={idx}>
-                <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center' }}>{row.sNo}</td>
-                <td style={{ border: '1px solid #222', padding: 6 }}>{row.question}</td>
-                <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center' }}>{row.overallRating}</td>
-                <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center' }}>{row.overallPercent}</td>
+            {Array.isArray(rows) && rows.length > 0 ? (
+              rows.map((row, idx) => (
+                <tr key={row.sNo + '-' + row.facultyName + '-' + row.course + '-' + row.section}>
+                  <td style={{ border: '1px solid #222', padding: 4, textAlign: 'center' }}>{row.sNo}</td>
+                  <td style={{ border: '1px solid #222', padding: 4 }}>{row.facultyName}</td>
+                  <td style={{ border: '1px solid #222', padding: 4 }}>{row.course}</td>
+                  <td style={{ border: '1px solid #222', padding: 4 }}>{row.section}</td>
+                  <td style={{ border: '1px solid #222', padding: 4, textAlign: 'center' }}>{row.overallPercent}</td>
+                  <td style={{ border: '1px solid #222', padding: 4 }}>{row.category}</td>
+                  <td style={{ border: '1px solid #222', padding: 4 }}></td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: 8, color: '#888' }}>No data available</td>
               </tr>
-            ))}
-            <tr>
-              <td style={{ border: '1px solid #222', padding: 6 }}></td>
-              <td style={{ border: '1px solid #222', padding: 6, textAlign: 'right', fontWeight: 600 }}>Avg:</td>
-              <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center', fontWeight: 600 }}>{avgRating}</td>
-              <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center', fontWeight: 600 }}>{avgPercent}</td>
-            </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -168,4 +159,4 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
   );
 };
 
-export default DepartmentReport;
+export default FacultyReport;
