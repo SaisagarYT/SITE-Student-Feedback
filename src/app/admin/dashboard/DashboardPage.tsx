@@ -1,3 +1,4 @@
+"use client";
 import Head from "next/head";
 // ...existing code up to the first closing return ...
 // Remove everything after the first closing return (including duplicate imports and function)

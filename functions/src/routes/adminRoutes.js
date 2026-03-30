@@ -3,6 +3,13 @@ const { getAdminReport, loginAdmin, logoutAdmin, getFacultyPerformance, getFacul
 
 const adminRouter = express.Router();
 
+// Admin login endpoint
+adminRouter.post("/login", loginAdmin);
+
+
+// Admin logout endpoint
+adminRouter.post("/logout", logoutAdmin);
+
 // FINAL API: report endpoint only
 adminRouter.get("/report", getAdminReport);
 

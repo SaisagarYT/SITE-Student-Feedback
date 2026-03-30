@@ -1,27 +1,29 @@
-// "use client"
 
-// import { useState, useEffect } from "react";
-// import { getFacultyPerformance, getFacultyDetail } from "@/api";
-// import { getAdminDashboardOverview } from "@/api";
-// import { getAuth, signOut } from "firebase/auth";
-// import { app } from "@/firebase";
-// // Logout logic reused from AdminNavbar
-// async function handleAdminLogout() {
-//   if (typeof window !== "undefined") {
-//     localStorage.removeItem("adminToken");
-//     localStorage.removeItem("adminEmail");
-//     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-//     try {
-//       const auth = getAuth(app);
-//       const idToken = (await auth.currentUser?.getIdToken?.()) || null;
-//       if (idToken) {
-//         await import("@/api").then(({ logoutAdmin }) => logoutAdmin(idToken));
-//       }
-//       await signOut(auth);
-//     } catch {}
-//     window.location.href = "/admin/login";
-//   }
-// }
+"use client";
+
+import { getAuth, signOut } from "firebase/auth";
+import { app } from "@/firebase";
+import { logoutAdmin } from "@/api";
+
+async function handleAdminLogout() {
+	if (typeof window !== "undefined") {
+		localStorage.removeItem("adminToken");
+		localStorage.removeItem("adminEmail");
+		localStorage.removeItem("adminRole");
+		localStorage.removeItem("adminName");
+		localStorage.removeItem("adminProfileImage");
+		document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+		try {
+			const auth = getAuth(app);
+			const idToken = (await auth.currentUser?.getIdToken?.()) || null;
+			if (idToken) {
+				await logoutAdmin(idToken);
+			}
+			await signOut(auth);
+		} catch {}
+		window.location.href = "/admin/login";
+	}
+}
 // import AdminDashboardProtected from "./AdminDashboardProtected";
 // import { Icon } from "@iconify/react";
 
@@ -39,19 +41,22 @@
 // type BranchParticipation = {
 //   branch: string;
 
-"use client";
 
 import DashboardPage from "./DashboardPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
+import AdminDashboardProtected from "./AdminDashboardProtected";
+
 export default function AdminDashboard() {
 	// Create a QueryClient instance only once per session
 	const [queryClient] = useState(() => new QueryClient());
 	return (
-		<QueryClientProvider client={queryClient}>
-			<DashboardPage />
-		</QueryClientProvider>
+		<AdminDashboardProtected>
+			<QueryClientProvider client={queryClient}>
+				<DashboardPage />
+			</QueryClientProvider>
+		</AdminDashboardProtected>
 	);
 }
 //     );

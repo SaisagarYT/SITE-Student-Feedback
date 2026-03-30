@@ -1,4 +1,50 @@
 const { db } = require("../config/firebase");
+const { getAuth } = require("firebase-admin/auth");
+/**
+ * POST /api/admin/logout
+ * Logs out the admin (stateless, just a placeholder for frontend to clear session).
+ */
+const logoutAdmin = async (req, res) => {
+  // In stateless JWT auth, logout is handled on the client by removing the token.
+  // This endpoint is just for symmetry and possible future use (e.g., token blacklist).
+  return res.status(200).json({ success: true, message: "Logged out" });
+};
+/**
+ * POST /api/admin/login
+ * Verifies idToken, checks if admin exists, returns user data if found.
+ */
+const loginAdmin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ error: "Missing idToken" });
+    }
+
+    // Verify the ID token with Firebase Admin
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+    const email = decodedToken.email;
+    if (!email) {
+      return res.status(400).json({ error: "Invalid token: no email" });
+    }
+
+    // Only allow sasi.ac.in emails
+    if (!email.endsWith('@sasi.ac.in')) {
+      return res.status(403).json({ error: "Only sasi.ac.in emails are allowed." });
+    }
+    // Check if an admin exists with this email
+    const adminsSnap = await db.collection("admins").where("email", "==", email).limit(1).get();
+    if (!adminsSnap.empty) {
+      // User found, return user data
+      return res.status(200).json({ user: adminsSnap.docs[0].data(), loggedIn: true });
+    } else {
+      // User not found
+      return res.status(404).json({ loggedIn: false, message: "Admin not found. Please contact support." });
+    }
+  } catch (error) {
+    console.error("Admin login error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
 
 /* ----------------------------- */
 /* Helpers */
@@ -243,5 +289,7 @@ const getAdminReport = async (req, res) => {
 };
 
 module.exports = {
-  getAdminReport
+  getAdminReport,
+  loginAdmin,
+  logoutAdmin
 };

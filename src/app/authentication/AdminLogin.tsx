@@ -7,8 +7,8 @@ import { app } from "@/firebase";
 import { loginAdmin } from "@/api";
 
 type AdminApiResponse = {
-  authenticated?: boolean;
-  admin?: {
+  loggedIn?: boolean;
+  user?: {
     email: string;
     name?: string;
     role?: string;
@@ -41,10 +41,10 @@ export default function AdminLogin() {
         document.cookie = `token=${idToken}; path=/; max-age=3600;`;
         const data = await loginAdmin(idToken) as AdminApiResponse;
         console.log("Backend response from loginAdmin:", data);
-        if (data && data.loggedIn && data.admin && data.admin.email) {
-          localStorage.setItem("adminEmail", data.admin.email);
-          localStorage.setItem("adminRole", data.admin.role || "");
-          localStorage.setItem("adminName", data.admin.name || user.displayName || "");
+        if (data && data.loggedIn && data.user && data.user.email) {
+          localStorage.setItem("adminEmail", data.user.email);
+          localStorage.setItem("adminRole", data.user.role || "");
+          localStorage.setItem("adminName", data.user.name || user.displayName || "");
           if (user.photoURL) {
             localStorage.setItem("adminProfileImage", user.photoURL);
           }
