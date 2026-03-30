@@ -355,8 +355,13 @@ useEffect(() => {
           ? { ratings: extractRatings(fb.phase1.ratings), remark: fb.phase1.remark || "" }
           : { ratings: {}, remark: "" },
       }));
-      setPhase1AlreadySubmitted(!!(fb.submitted && fb.phase1));
-      window.alert("Phase 1 feedback submitted.");
+      // Always check backend status after submission and force lock if true
+      if (fb.submitted && fb.phase1) {
+        setPhase1AlreadySubmitted(true);
+        window.alert("Phase 1 feedback submitted.");
+      } else {
+        setPhase1AlreadySubmitted(false);
+      }
     } catch {
       setIsSubmitting(false);
       window.alert("Failed to submit Phase 1 feedback. Please try again.");
@@ -413,8 +418,13 @@ useEffect(() => {
           ? { ratings: extractRatings(fb.phase2.ratings), remark: fb.phase2.remark || "" }
           : { ratings: {}, remark: "" },
       }));
-      setPhase2AlreadySubmitted(!!(fb.submitted && fb.phase2));
-      window.alert("Phase 2 feedback submitted.");
+      // Always check backend status after submission and force lock if true
+      if (fb.submitted && fb.phase2) {
+        setPhase2AlreadySubmitted(true);
+        window.alert("Phase 2 feedback submitted.");
+      } else {
+        setPhase2AlreadySubmitted(false);
+      }
     } catch {
       setIsSubmitting(false);
       window.alert("Failed to submit Phase 2 feedback. Please try again.");
@@ -467,8 +477,9 @@ useEffect(() => {
     return null;
   }
   // Add a notice for phase completion (move inside HomePage before return)
-  const showPhase1Notice = phase1AlreadySubmitted && activePhase === "phase1";
-  const showPhase2Notice = phase2AlreadySubmitted && activePhase === "phase2";
+  // Always show notice and disable if backend says submitted, regardless of local state
+  const showPhase1Notice = phase1AlreadySubmitted;
+  const showPhase2Notice = phase2AlreadySubmitted;
   const showPhase2InactiveNotice = !phase2Active && activePhase === "phase2";
   return (
     <main className="relative min-h-screen overflow-x-clip bg-(--page) text-(--ink)">
