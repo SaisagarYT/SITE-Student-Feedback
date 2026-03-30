@@ -16,6 +16,7 @@ import FacultyReport from "../../../components/admin/FacultyReport";
 import SectionReport from "../../../components/admin/SectionReport";
 import { feedbackPhases } from "../../../data/questions";
 
+
 export default function AdminDashboard() {
   const [filters, setFilters] = useState({
     program: "",
@@ -26,7 +27,7 @@ export default function AdminDashboard() {
     fromDate: "",
     toDate: ""
   });
-  const [tab, setTab] = useState("department");
+  const [tab, setTab] = useState("section");
   const [data, setData] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -34,7 +35,6 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       const res = await getAdminReport({ ...filters, view: tab });
-      console.log("Backend report data:", res);
       setData(res.results || []);
     } catch {
       setData([]);
@@ -119,7 +119,25 @@ export default function AdminDashboard() {
             <FilterBar filters={filters} setFilters={setFilters} />
             <Tabs tab={tab} setTab={setTab} />
           </div>
-          {tab === "faculty" ? (
+          {tab === "section" ? (
+            <SectionReport
+              academicYear="25-26"
+              program={filters.program || "B.Tech"}
+              department={filters.branchId}
+              phase={filters.phase}
+              year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
+              semester={filters.semester || "ODD"}
+              section={filters.section}
+              setSection={section => setFilters(f => ({ ...f, section }))}
+              rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => ({
+                sNo: idx + 1,
+                facultyName: row.facultyName || "",
+                course: row.courseName || "",
+                overallPercent: row.percentage != null ? row.percentage.toFixed(0) : "-",
+                category: row.category || "",
+              })) : []}
+            />
+          ) : tab === "faculty" ? (
             <>
               <div className="mb-4 print:hidden">
                 <label htmlFor="faculty-select" className="mr-2 font-semibold">Select Faculty:</label>
@@ -151,42 +169,6 @@ export default function AdminDashboard() {
                 <div className="text-center text-gray-500">No faculty data available.</div>
               )}
             </>
-          ) : tab === "section" ? (
-            <SectionReport
-              academicYear="25-26"
-              program={filters.program || "B.Tech"}
-              department={filters.branchId}
-              phase={filters.phase}
-              year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
-              semester={filters.semester || "ODD"}
-              section={filters.section}
-              rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => ({
-                sNo: idx + 1,
-                facultyName: row.facultyName || "",
-                course: row.courseName || "",
-                overallPercent: row.percentage != null ? row.percentage.toFixed(0) : "-",
-                category: row.category || "",
-              })) : []}
-            />
-          ) : tab === "department" ? (
-            <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <FacultyReport
-                academicYear="25-26"
-                program={filters.program || "B.Tech"}
-                department={filters.branchId}
-                phase={filters.phase}
-                year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
-                semester={filters.semester || "ODD"}
-                rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => ({
-                  sNo: idx + 1,
-                  facultyName: row.facultyName || "",
-                  course: row.courseName || "",
-                  section: (typeof row === 'object' && 'section' in row && row.section) ? (row as any).section : filters.section,
-                  overallPercent: row.percentage != null ? row.percentage.toFixed(0) : "-",
-                  category: row.category || "",
-                })) : []}
-              />
-            </div>
           ) : (
             <>
               <ReportHeader filters={filters} />

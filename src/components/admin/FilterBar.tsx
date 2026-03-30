@@ -68,17 +68,7 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         ))}
       </select>
 
-      {/* Section Filter */}
-      <select
-        className="border p-2 rounded min-w-25"
-        value={filters.section}
-        onChange={e => setFilters(f => ({ ...f, section: e.target.value }))}
-        disabled={!filters.program}
-      >
-        <option value="">Section</option>
-        <option value="A">A</option>
-        <option value="B">B</option>
-      </select>
+
 
       {/* Semester Filter */}
       <select

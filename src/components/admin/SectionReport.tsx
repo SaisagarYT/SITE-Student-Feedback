@@ -16,6 +16,7 @@ interface SectionReportProps {
   year: string;
   semester: string;
   section: string;
+  setSection: (section: string) => void;
   rows: SectionReportRow[];
 }
 
@@ -27,6 +28,7 @@ const SectionReport: React.FC<SectionReportProps> = ({
   year,
   semester,
   section,
+  setSection,
   rows,
 }) => {
   // Helper to convert semester string to number if possible
@@ -89,6 +91,20 @@ const SectionReport: React.FC<SectionReportProps> = ({
           }
         }
       `}</style>
+      {/* SECTION FILTER */}
+      <div className="mb-4 print:hidden" style={{ textAlign: 'right' }}>
+        <label htmlFor="section-select" className="mr-2 font-semibold">Section:</label>
+        <select
+          id="section-select"
+          value={section}
+          onChange={e => setSection(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
+          <option value="">All</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+        </select>
+      </div>
       {/* HEADER */}
       <div className="no-break" style={{ width: '100%', marginBottom: 2 }}>
         <img

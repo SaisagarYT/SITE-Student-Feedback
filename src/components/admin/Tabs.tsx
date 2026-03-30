@@ -6,7 +6,7 @@ type TabsProps = {
 };
 
 export default function Tabs({ tab, setTab }: TabsProps) {
-  const tabs = ["department", "section", "faculty"];
+  const tabs = ["section", "faculty"];
   return (
     <div className="flex gap-2 mb-3">
       {tabs.map(t => (
