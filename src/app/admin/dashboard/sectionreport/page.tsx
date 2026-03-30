@@ -1,5 +1,5 @@
 "use client";
-import SectionReport from "../../../components/admin/SectionReport";
+import SectionReport from "../../../../components/admin/SectionReport";
 
 export default function SectionReportPage() {
   // Example data, replace with real data as needed
