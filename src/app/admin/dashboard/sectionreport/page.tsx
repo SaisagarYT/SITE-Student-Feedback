@@ -20,6 +20,6 @@ export default function SectionReportPage() {
         section="A"
         rows={rows}
       />
-    </div>
+    </div> // randome comment in section report"
   );
 }
