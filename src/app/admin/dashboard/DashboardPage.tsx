@@ -4,12 +4,16 @@ import Head from "next/head";
 // Remove everything after the first closing return (including duplicate imports and function)
 import { useState, useEffect } from "react";
 import { getAdminReport } from "../../../api";
+
 import FilterBar from "../../../components/admin/FilterBar";
 import Tabs from "../../../components/admin/Tabs";
 import ReportHeader from "../../../components/admin/ReportHeader";
 import ReportTable, { ReportRow } from "../../../components/admin/ReportTable";
 import PrintButton from "../../../components/admin/PrintButton";
 import AdminNavbar from "../../../components/admin/AdminNavbar";
+import DepartmentReport from "../../../components/admin/DepartmentReport";
+import SectionReport from "../../../components/admin/SectionReport";
+import { feedbackPhases } from "../../../data/questions";
 
 export default function AdminDashboard() {
   const [filters, setFilters] = useState({
@@ -59,6 +63,42 @@ export default function AdminDashboard() {
       })
     : data;
 
+  // Faculty dropdown state
+  const facultyList = Array.isArray(sortedData) ? sortedData.map(row => row.facultyName) : [];
+  const [selectedFaculty, setSelectedFaculty] = useState<string>(facultyList[0] || "");
+  useEffect(() => {
+    if (facultyList.length && !facultyList.includes(selectedFaculty)) {
+      setSelectedFaculty(facultyList[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facultyList.join(",")]);
+
+  // Find selected faculty row
+  const selectedFacultyRow = Array.isArray(sortedData)
+    ? sortedData.find(row => row.facultyName === selectedFaculty)
+    : null;
+
+
+  // Determine phase and get correct questions
+  const phaseKey = filters.phase === "2" ? "phase2" : "phase1";
+  const phaseObj = feedbackPhases.find(p => p.id === phaseKey);
+  const questionMap = phaseObj
+    ? Object.fromEntries(phaseObj.questions.map((q, i) => [
+        `q${i + 1}`,
+        q.text
+      ]))
+    : {};
+
+  // Build questions from perQuestionAverages, using actual question text
+  const facultyRows = selectedFacultyRow && selectedFacultyRow.perQuestionAverages
+    ? Object.entries(selectedFacultyRow.perQuestionAverages).map(([qKey, value], idx) => ({
+        sNo: idx + 1,
+        question: questionMap[qKey] || qKey,
+        overallRating: value != null ? value.toFixed(2) : "-",
+        overallPercent: value != null ? (value * 20).toFixed(0) : "-",
+      }))
+    : [];
+
   return (
     <>
       <Head>
@@ -77,10 +117,63 @@ export default function AdminDashboard() {
             <FilterBar filters={filters} setFilters={setFilters} />
             <Tabs tab={tab} setTab={setTab} />
           </div>
-          <ReportHeader filters={filters} />
-          <div className="flex-1 overflow-hidden flex flex-col">
-            <ReportTable data={sortedData} loading={loading} showPerQuestion={tab === "faculty"} />
-          </div>
+          {tab === "faculty" ? (
+            <>
+              <div className="mb-4 print:hidden">
+                <label htmlFor="faculty-select" className="mr-2 font-semibold">Select Faculty:</label>
+                <select
+                  id="faculty-select"
+                  value={selectedFaculty}
+                  onChange={e => setSelectedFaculty(e.target.value)}
+                  className="border rounded px-2 py-1"
+                >
+                  {facultyList.map(faculty => (
+                    <option key={faculty} value={faculty}>{faculty}</option>
+                  ))}
+                </select>
+              </div>
+              {selectedFacultyRow ? (
+                <DepartmentReport
+                  academicYear="25-26"
+                  program="B.Tech"
+                  year="III"
+                  department={filters.branchId}
+                  semester={filters.semester || "ODD"}
+                  section={filters.section}
+                  phase={filters.phase}
+                  facultyRows={facultyRows}
+                  avgRating={selectedFacultyRow.avgScore?.toFixed(2) || "-"}
+                  avgPercent={selectedFacultyRow.percentage?.toFixed(0) || "-"}
+                />
+              ) : (
+                <div className="text-center text-gray-500">No faculty data available.</div>
+              )}
+            </>
+          ) : tab === "section" ? (
+            <SectionReport
+              academicYear="25-26"
+              program="B.Tech"
+              department={filters.branchId}
+              phase={filters.phase}
+              year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
+              semester={filters.semester || "ODD"}
+              section={filters.section}
+              rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => ({
+                sNo: idx + 1,
+                facultyName: row.facultyName || "",
+                course: row.courseName || "",
+                overallPercent: row.percentage != null ? row.percentage.toFixed(0) : "-",
+                category: row.category || "",
+              })) : []}
+            />
+          ) : (
+            <>
+              <ReportHeader filters={filters} />
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <ReportTable data={sortedData} loading={loading} showPerQuestion={tab === "faculty"} />
+              </div>
+            </>
+          )}
           <div className="print:hidden">
             <PrintButton />
           </div>
