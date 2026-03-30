@@ -1,6 +1,8 @@
 import React from "react";
 
 export type ReportRow = {
+  facultyId: string;
+  courseId: string;
   facultyName: string;
   courseName: string;
   avgScore: number;

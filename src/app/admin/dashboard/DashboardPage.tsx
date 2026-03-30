@@ -12,7 +12,6 @@ import ReportTable, { ReportRow } from "../../../components/admin/ReportTable";
 import PrintButton from "../../../components/admin/PrintButton";
 import AdminNavbar from "../../../components/admin/AdminNavbar";
 import DepartmentReport from "../../../components/admin/DepartmentReport";
-import FacultyReport from "../../../components/admin/FacultyReport";
 import SectionReport from "../../../components/admin/SectionReport";
 import { feedbackPhases } from "../../../data/questions";
 
@@ -34,7 +33,15 @@ export default function AdminDashboard() {
   const fetchReport = async () => {
     try {
       setLoading(true);
-      const res = await getAdminReport({ ...filters, view: tab });
+      // Map phase to backend/DB format
+      const phaseMapped = filters.phase === "2" ? "p2" : "p1";
+      // Use dynamic academicYear (example: from filter, or compute current year)
+      // Here, try to get from filters.academicYear, else compute
+      const now = new Date();
+      const year = now.getFullYear();
+      const nextYear = (year + 1).toString().slice(-2);
+      const academicYear = `${year}-${nextYear}`;
+      const res = await getAdminReport({ ...filters, phase: phaseMapped, academicYear, view: tab });
       setData(res.results || []);
     } catch {
       setData([]);
@@ -66,18 +73,29 @@ export default function AdminDashboard() {
     : data;
 
   // Faculty dropdown state
-  const facultyList = Array.isArray(sortedData) ? sortedData.map(row => row.facultyName) : [];
-  const [selectedFaculty, setSelectedFaculty] = useState<string>(facultyList[0] || "");
+  // Build faculty list with unique facultyId and display name (name + subject type)
+  const facultyList = Array.isArray(sortedData)
+    ? sortedData.map(row => ({
+        facultyId: row.facultyId,
+        facultyName: row.facultyName,
+        courseId: row.courseId,
+        courseName: row.courseName,
+        type: row.type,
+        display: `${row.facultyName} (${row.type === "theory" ? "Theory" : row.type === "lab" ? "Lab" : row.type || ""} - ${row.courseName || row.courseId})`,
+        key: `${row.facultyId}_${row.courseId}`
+      }))
+    : [];
+  const [selectedFaculty, setSelectedFaculty] = useState<string>(facultyList[0]?.key || "");
   useEffect(() => {
-    if (facultyList.length && !facultyList.includes(selectedFaculty)) {
-      setSelectedFaculty(facultyList[0]);
+    if (facultyList.length && !facultyList.some(f => f.key === selectedFaculty)) {
+      setSelectedFaculty(facultyList[0]?.key || "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facultyList.join(",")]);
+  }, [facultyList.map(f => f.key).join(",")]);
 
-  // Find selected faculty row
+  // Find selected faculty row by composite key (facultyId + courseId)
   const selectedFacultyRow = Array.isArray(sortedData)
-    ? sortedData.find(row => row.facultyName === selectedFaculty)
+    ? sortedData.find(row => `${row.facultyId}_${row.courseId}` === selectedFaculty)
     : null;
 
 
@@ -121,10 +139,15 @@ export default function AdminDashboard() {
           </div>
           {tab === "section" ? (
             <SectionReport
-              academicYear="25-26"
+              academicYear={(function() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const nextYear = (year + 1).toString().slice(-2);
+                return `${year}-${nextYear}`;
+              })()}
               program={filters.program || "B.Tech"}
               department={filters.branchId}
-              phase={filters.phase}
+              phase={filters.phase === "2" ? "p2" : "p1"}
               year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
               semester={filters.semester || "ODD"}
               section={filters.section}
@@ -148,19 +171,26 @@ export default function AdminDashboard() {
                   className="border rounded px-2 py-1"
                 >
                   {facultyList.map(faculty => (
-                    <option key={faculty} value={faculty}>{faculty}</option>
+                    <option key={faculty.key} value={faculty.key}>
+                      {faculty.display}
+                    </option>
                   ))}
                 </select>
               </div>
               {selectedFacultyRow ? (
                 <DepartmentReport
-                  academicYear="25-26"
+                  academicYear={(function() {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const nextYear = (year + 1).toString().slice(-2);
+                    return `${year}-${nextYear}`;
+                  })()}
                   program={filters.program || "B.Tech"}
                   year="III"
                   department={filters.branchId}
                   semester={filters.semester || "ODD"}
                   section={filters.section}
-                  phase={filters.phase}
+                  phase={filters.phase === "2" ? "p2" : "p1"}
                   facultyRows={facultyRows}
                   avgRating={selectedFacultyRow.avgScore?.toFixed(2) || "-"}
                   avgPercent={selectedFacultyRow.percentage?.toFixed(0) || "-"}
