@@ -103,6 +103,8 @@ const SectionReport: React.FC<SectionReportProps> = ({
           <option value="">All</option>
           <option value="A">A</option>
           <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
         </select>
       </div>
       {/* HEADER */}
@@ -169,9 +171,9 @@ const SectionReport: React.FC<SectionReportProps> = ({
       </div>
       {/* FOOTER */}
       <div className="no-break signatures" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
-        <div>HOD (signature)</div>
-        <div>Dean (Academics)</div>
-        <div>Principal (signature)</div>
+        <div>HOD</div>
+        <div>Dean (Academic&apos;s)</div>
+        <div>Principal</div>
       </div>
     </div>
   );

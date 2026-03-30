@@ -11,15 +11,16 @@ export default function SectionReportPage() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
       <SectionReport
-        academicYear="25-26"
-        program="B.Tech"
-        department="CSE"
-        phase="I"
-        year="III"
-        semester="ODD"
-        section="A"
-        rows={rows}
-      />
+              academicYear="25-26"
+              program="B.Tech"
+              department="CSE"
+              phase="I"
+              year="III"
+              semester="ODD"
+              section="A"
+              rows={rows} setSection={function (section: string): void {
+                  throw new Error("Function not implemented.");
+              } }      />
     </div> // randome comment in section report"
   );
 }

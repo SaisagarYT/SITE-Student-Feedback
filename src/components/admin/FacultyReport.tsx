@@ -150,8 +150,8 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
       </div>
       {/* FOOTER */}
       <div className="no-break signatures" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
-        <div>Faculty signature</div>
-        <div>HOD signature</div>
+        <div>Signature of Faculty</div>
+        <div>HOD</div>
         <div>Dean (Academic) signature</div>
         <div>Principal signature</div>
       </div>

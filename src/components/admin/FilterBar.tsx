@@ -99,21 +99,6 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         <option value="2">Phase 2</option>
       </select>
 
-      {/* Date Filters */}
-      <input
-        type="date"
-        className="border p-2 rounded"
-        value={filters.fromDate}
-        onChange={e => setFilters(f => ({ ...f, fromDate: e.target.value }))}
-        disabled={!filters.program}
-      />
-      <input
-        type="date"
-        className="border p-2 rounded"
-        value={filters.toDate}
-        onChange={e => setFilters(f => ({ ...f, toDate: e.target.value }))}
-        disabled={!filters.program}
-      />
     </div>
   );
 }
