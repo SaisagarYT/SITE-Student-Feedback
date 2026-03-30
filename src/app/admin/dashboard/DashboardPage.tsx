@@ -18,8 +18,9 @@ import { feedbackPhases } from "../../../data/questions";
 
 export default function AdminDashboard() {
   const [filters, setFilters] = useState({
-    branchId: "ECE",
-    section: "A",
+    program: "",
+    branchId: "",
+    section: "",
     semester: "",
     phase: "1",
     fromDate: "",
@@ -136,7 +137,7 @@ export default function AdminDashboard() {
               {selectedFacultyRow ? (
                 <DepartmentReport
                   academicYear="25-26"
-                  program="B.Tech"
+                  program={filters.program || "B.Tech"}
                   year="III"
                   department={filters.branchId}
                   semester={filters.semester || "ODD"}
@@ -153,7 +154,7 @@ export default function AdminDashboard() {
           ) : tab === "section" ? (
             <SectionReport
               academicYear="25-26"
-              program="B.Tech"
+              program={filters.program || "B.Tech"}
               department={filters.branchId}
               phase={filters.phase}
               year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
@@ -171,7 +172,7 @@ export default function AdminDashboard() {
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
               <FacultyReport
                 academicYear="25-26"
-                program="B.Tech"
+                program={filters.program || "B.Tech"}
                 department={filters.branchId}
                 phase={filters.phase}
                 year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}

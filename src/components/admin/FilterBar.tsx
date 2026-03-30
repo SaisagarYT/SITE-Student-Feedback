@@ -2,6 +2,7 @@ import React from "react";
 
 type FilterBarProps = {
   filters: {
+    program: string;
     branchId: string;
     section: string;
     semester: string;
@@ -10,6 +11,7 @@ type FilterBarProps = {
     toDate: string;
   };
   setFilters: React.Dispatch<React.SetStateAction<{
+    program: string;
     branchId: string;
     section: string;
     semester: string;
@@ -19,41 +21,71 @@ type FilterBarProps = {
   }>>;
 };
 
+const PROGRAM_DEPARTMENTS: Record<string, string[]> = {
+  "B.Tech": ["CSE", "IT", "ECE", "EEE", "MECH", "CIVIL", "AIDS", "AIML", "CSM", "CSD", "CIC", "CST"],
+  "M.Tech": ["AI", "VLSI"],
+  "MBA": ["MBA"],
+};
+
 export default function FilterBar({ filters, setFilters }: FilterBarProps) {
+  const departmentOptions = filters.program ? PROGRAM_DEPARTMENTS[filters.program] || [] : [];
+
   return (
     <div className="bg-white p-3 rounded shadow flex flex-wrap gap-3 mb-3">
+      {/* Program Filter */}
+      <select
+        className="border p-2 rounded min-w-30"
+        value={filters.program}
+        onChange={e => {
+          const value = e.target.value;
+          setFilters({
+            program: value,
+            branchId: "",
+            section: "",
+            semester: "",
+            phase: "1",
+            fromDate: "",
+            toDate: ""
+          });
+        }}
+      >
+        <option value="">Program</option>
+        <option value="B.Tech">B.Tech</option>
+        <option value="M.Tech">M.Tech</option>
+        <option value="MBA">MBA</option>
+      </select>
+
+      {/* Department Filter (dynamic) */}
       <select
         className="border p-2 rounded min-w-30"
         value={filters.branchId}
         onChange={e => setFilters(f => ({ ...f, branchId: e.target.value }))}
+        disabled={!filters.program}
       >
         <option value="">Department</option>
-        <option value="CSE">CSE</option>
-        <option value="IT">IT</option>
-        <option value="ECE">ECE</option>
-        <option value="EEE">EEE</option>
-        <option value="MECH">MECH</option>
-        <option value="CIVIL">CIVIL</option>
-        <option value="AIDS">AIDS</option>
-        <option value="AIML">AIML</option>
-        <option value="CSM">CSM</option>
-        <option value="CSD">CSD</option>
-        <option value="CIC">CIC</option>
-        <option value="CST">CST</option>
+        {departmentOptions.map(dep => (
+          <option key={dep} value={dep}>{dep}</option>
+        ))}
       </select>
+
+      {/* Section Filter */}
       <select
         className="border p-2 rounded min-w-25"
         value={filters.section}
         onChange={e => setFilters(f => ({ ...f, section: e.target.value }))}
+        disabled={!filters.program}
       >
         <option value="">Section</option>
         <option value="A">A</option>
         <option value="B">B</option>
       </select>
+
+      {/* Semester Filter */}
       <select
         className="border p-2 rounded min-w-25"
         value={filters.semester}
         onChange={e => setFilters(f => ({ ...f, semester: e.target.value }))}
+        disabled={!filters.program}
       >
         <option value="">Semester</option>
         <option value="I-I">I-I</option>
@@ -65,25 +97,32 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         <option value="IV-I">IV-I</option>
         <option value="IV-II">IV-II</option>
       </select>
+
+      {/* Phase Filter */}
       <select
         className="border p-2 rounded min-w-25"
         value={filters.phase}
         onChange={e => setFilters(f => ({ ...f, phase: e.target.value }))}
+        disabled={!filters.program}
       >
         <option value="1">Phase 1</option>
         <option value="2">Phase 2</option>
       </select>
+
+      {/* Date Filters */}
       <input
         type="date"
         className="border p-2 rounded"
         value={filters.fromDate}
         onChange={e => setFilters(f => ({ ...f, fromDate: e.target.value }))}
+        disabled={!filters.program}
       />
       <input
         type="date"
         className="border p-2 rounded"
         value={filters.toDate}
         onChange={e => setFilters(f => ({ ...f, toDate: e.target.value }))}
+        disabled={!filters.program}
       />
     </div>
   );
