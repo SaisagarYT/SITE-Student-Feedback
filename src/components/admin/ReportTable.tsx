@@ -1,6 +1,8 @@
 import React from "react";
 
 export type ReportRow = {
+  totalStudents: number | undefined;
+  submitted: number | undefined;
   facultyId: string;
   courseId: string;
   facultyName: string;

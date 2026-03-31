@@ -278,15 +278,18 @@ const getAdminReport = async (req, res) => {
       const faculty = facultyMap.get(value.facultyId);
       const course = courseMap.get(value.courseId);
 
-      // Per-question averages
+      // Per-question averages and counts
       const perQuestionAverages = {};
+      const perQuestionCounts = {};
       const pq = value.perQuestion || {};
       Object.keys(pq).forEach(qKey => {
         const arr = pq[qKey];
         if (arr && arr.length > 0) {
           perQuestionAverages[qKey] = Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2));
+          perQuestionCounts[qKey] = arr.length;
         } else {
           perQuestionAverages[qKey] = null;
+          perQuestionCounts[qKey] = 0;
         }
       });
 
@@ -309,7 +312,8 @@ const getAdminReport = async (req, res) => {
         submitted: value.submissions,
         submissionRate: Math.round(submissionRate),
 
-        perQuestionAverages
+        perQuestionAverages,
+        perQuestionCounts,
       });
     });
 

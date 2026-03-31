@@ -18,6 +18,8 @@ interface DepartmentReportProps {
   facultyRows: FacultyAnalysisRow[];
   avgRating: string | number;
   avgPercent: string | number;
+  submitted?: number;
+  totalStudents?: number;
 }
 
 const DepartmentReport: React.FC<DepartmentReportProps> = ({
@@ -30,6 +32,8 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
   facultyRows,
   avgRating,
   avgPercent,
+  submitted,
+  totalStudents,
 }) => {
   // Helper to convert semester string to number if possible
   function getSemesterNumber(sem: string) {
@@ -125,6 +129,12 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           <div><b>Year:</b> {year}</div>
           <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
           <div><b>Section:</b> {section}</div>
+          {typeof submitted !== 'undefined' && (
+            <div><b>Submitted:</b> {submitted}</div>
+          )}
+          {typeof totalStudents !== 'undefined' && (
+            <div><b>Total Students:</b> {totalStudents}</div>
+          )}
         </div>
       </div>
       {/* TABLE */}

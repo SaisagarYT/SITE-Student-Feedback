@@ -42,6 +42,7 @@ export default function AdminDashboard() {
       const nextYear = (year + 1).toString().slice(-2);
       const academicYear = `${year}-${nextYear}`;
       const res = await getAdminReport({ ...filters, phase: phaseMapped, academicYear, view: tab });
+      console.log(res.results)
       setData(res.results || []);
     } catch {
       setData([]);
@@ -194,6 +195,8 @@ export default function AdminDashboard() {
                   facultyRows={facultyRows}
                   avgRating={selectedFacultyRow.avgScore?.toFixed(2) || "-"}
                   avgPercent={selectedFacultyRow.percentage?.toFixed(0) || "-"}
+                  submitted={selectedFacultyRow.submitted}
+                  totalStudents={selectedFacultyRow.totalStudents}
                 />
               ) : (
                 <div className="text-center text-gray-500">No faculty data available.</div>
