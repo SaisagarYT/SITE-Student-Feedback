@@ -37,21 +37,15 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
   submitted,
   totalStudents,
 }) => {
-  // Helper to convert semester string to number if possible
+
   function getSemesterNumber(sem: string) {
-    // Map Roman numerals to numbers
     const romanMap: Record<string, number> = {
-      'I': 1,
-      'II': 2,
-      'III': 3,
-      'IV': 4,
+      I: 1, II: 2, III: 3, IV: 4,
     };
-    // Match patterns like 'III-II', 'II-I', etc.
     const match = sem.match(/^(I|II|III|IV)-(I|II)$/);
     if (match) {
       const year = romanMap[match[1]];
-      const part = match[2] === 'I' ? 1 : 2;
-      // Semester number: (year - 1) * 2 + part
+      const part = match[2] === "I" ? 1 : 2;
       return (year - 1) * 2 + part;
     }
     return sem;
@@ -59,126 +53,214 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
 
   return (
     <div
-      className="department-report-print w-full"
-      style={{ fontFamily: 'serif', color: '#222', padding: 24, background: '#fff', width: '100%' }}
+      className="department-report-print"
+      style={{
+        fontFamily: "serif",
+        color: "#222",
+        padding: 24,        // BIG for screen
+        background: "#fff",
+        width: "100%",
+        fontSize: 16        // BIG for screen
+      }}
     >
       <style>{`
+        /* ================= SCREEN ================= */
         @media screen {
           .department-report-print {
             max-height: 80vh;
             overflow-y: auto;
           }
         }
+
+        /* ================= PRINT ================= */
         @media print {
           @page {
             size: A4;
-            margin: 12mm;
+            margin: 6mm;
           }
+
           html, body {
             margin: 0;
             padding: 0;
           }
+
           body * {
             visibility: hidden;
           }
+
           .department-report-print,
           .department-report-print * {
             visibility: visible;
           }
+
           .department-report-print {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 190mm;
-            margin: auto;
-            page-break-inside: avoid;
+            margin: 0;
+
+            /* 🔥 SHRINK ONLY FOR PRINT */
+            font-size: 12px;
+            padding: 10px;
           }
-          .no-break {
-            page-break-inside: avoid;
+
+          .header-title {
+            font-size: 16px !important;
           }
+
+          .header-subtitle {
+            font-size: 14px !important;
+          }
+
+          .body-text {
+            font-size: 12px !important;
+          }
+
+          table {
+            font-size: 11px !important;
+            border-collapse: collapse;
+          }
+
+          th, td {
+            padding: 3px !important;
+            line-height: 1.2;
+          }
+
+          img {
+            max-height: 22mm !important;
+          }
+
           .signatures {
-            margin-top: 20mm;
+            margin-top: 8mm !important;
+          }
+
+          tr {
+            page-break-inside: avoid;
           }
         }
       `}</style>
+
       {/* HEADER */}
-      <div className="no-break" style={{ width: '100%', marginBottom: 6 }}>
+      <div style={{ marginBottom: 8 }}>
         <img
           src="/sasi_logo_main.png"
           alt="SASI Logo"
           style={{
-            maxWidth: '170mm',
-            maxHeight: '40mm',
-            width: '100%',
-            objectFit: 'contain',
-            display: 'block',
-            margin: '0 auto',
+            width: "100%",
+            maxWidth: "170mm",
+            maxHeight: "40mm", // big on screen
+            objectFit: "contain",
+            display: "block",
+            margin: "0 auto",
           }}
         />
-        <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 18, marginTop: 4 }}>
+
+        <div className="header-subtitle" style={{ textAlign: "center", fontWeight: 600 }}>
           Academic year 2025-26
         </div>
-        <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 20, margin: '4px 0' }}>
+
+        <div className="header-title" style={{ textAlign: "center", fontWeight: 600 }}>
           Student Feedback Analysis
         </div>
       </div>
+
       {/* BODY */}
-      <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 16 }}>
+      <div
+        className="body-text"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
         <div>
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
           <div><b>Phase:</b> {phase}</div>
           <div><b>SubmittedDate:</b> {submittedDate}</div>
         </div>
+
         <div>
           <div><b>Year:</b> {year}</div>
           <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
           <div><b>Section:</b> {section}</div>
-          {typeof submitted !== 'undefined' && (
+          {submitted !== undefined && (
             <div><b>Submitted:</b> {submitted}</div>
           )}
-          {typeof totalStudents !== 'undefined' && (
+          {totalStudents !== undefined && (
             <div><b>Total Students:</b> {totalStudents}</div>
           )}
         </div>
       </div>
+
       {/* TABLE */}
       <div>
-        <div style={{ fontWeight: 600, margin: '16px 0 8px 0', fontSize: 16 }}>Faculty Individual Analysis</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, margin: "16px 0 8px" }}>
+          Faculty Individual Analysis
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ border: '1px solid #222', padding: 6 }}>S.NO</th>
-              <th style={{ border: '1px solid #222', padding: 6 }}>Question</th>
-              <th style={{ border: '1px solid #222', padding: 6 }}>Overall Rating</th>
-              <th style={{ border: '1px solid #222', padding: 6 }}>Overall %</th>
+              <th style={th}>S.NO</th>
+              <th style={th}>Question</th>
+              <th style={th}>Overall Rating</th>
+              <th style={th}>Overall %</th>
             </tr>
           </thead>
+
           <tbody>
             {facultyRows.map((row, idx) => (
               <tr key={idx}>
-                <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center' }}>{row.sNo}</td>
-                <td style={{ border: '1px solid #222', padding: 6 }}>{row.question}</td>
-                <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center' }}>{row.overallRating}</td>
-                <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center' }}>{row.overallPercent}</td>
+                <td style={tdCenter}>{row.sNo}</td>
+                <td style={td}>{row.question}</td>
+                <td style={tdCenter}>{row.overallRating}</td>
+                <td style={tdCenter}>{row.overallPercent}</td>
               </tr>
             ))}
+
             <tr>
-              <td style={{ border: '1px solid #222', padding: 6 }}></td>
-              <td style={{ border: '1px solid #222', padding: 6, textAlign: 'right', fontWeight: 600 }}>Avg:</td>
-              <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center', fontWeight: 600 }}>{avgRating}</td>
-              <td style={{ border: '1px solid #222', padding: 6, textAlign: 'center', fontWeight: 600 }}>{avgPercent}</td>
+              <td style={td}></td>
+              <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>Avg:</td>
+              <td style={{ ...tdCenter, fontWeight: 600 }}>{avgRating}</td>
+              <td style={{ ...tdCenter, fontWeight: 600 }}>{avgPercent}</td>
             </tr>
           </tbody>
         </table>
       </div>
+
       {/* FOOTER */}
-      <div className="no-break signatures" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
+      <div
+        className="signatures"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 40,   // big on screen
+        }}
+      >
         <div>Signature of Faculty</div>
         <div>HOD</div>
-        <div>Dean (Academic&apos;s)</div>
+        <div>Dean (Academic)</div>
         <div>Principal</div>
       </div>
     </div>
   );
+};
+
+const th = {
+  border: "1px solid #222",
+  padding: 6,
+};
+
+const td = {
+  border: "1px solid #222",
+  padding: 6,
+};
+
+const tdCenter = {
+  ...td,
+  textAlign: "center" as const,
 };
 
 export default DepartmentReport;
