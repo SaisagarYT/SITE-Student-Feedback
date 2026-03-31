@@ -214,9 +214,9 @@ export default function HomePage() {
           };
         });
         // Log faculty details for each course
-        normalizedCourses.forEach(course => {
-          console.log(`Course: ${course.courseName} (${course.courseId}) faculties:`, course.faculties);
-        });
+        // normalizedCourses.forEach(course => {
+        //   console.log(`Course: ${course.courseName} (${course.courseId}) faculties:`, course.faculties);
+        // }); //commented
         setCourses(normalizedCourses);
         setSelectedCourse(normalizedCourses.length > 0 ? normalizedCourses[0] : null);
         setSelectedFaculty(normalizedCourses.length > 0 && normalizedCourses[0].faculties.length > 0 ? normalizedCourses[0].faculties[0] : null);
