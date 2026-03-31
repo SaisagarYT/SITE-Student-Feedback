@@ -197,6 +197,7 @@ export default function AdminDashboard() {
                   avgPercent={selectedFacultyRow.percentage?.toFixed(0) || "-"}
                   submitted={selectedFacultyRow.submitted}
                   totalStudents={selectedFacultyRow.totalStudents}
+                  submittedDate={selectedFacultyRow.submittedDate ? new Date(selectedFacultyRow.submittedDate).toISOString().split('T')[0] : "-"}
                 />
               ) : (
                 <div className="text-center text-gray-500">No faculty data available.</div>

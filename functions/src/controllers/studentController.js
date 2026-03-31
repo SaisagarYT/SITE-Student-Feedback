@@ -1,10 +1,6 @@
 const { getAuth } = require("firebase-admin/auth");
 const { db } = require("../config/firebase");
-/**
- * POST /api/student/submit-feedback
- * Submits feedback for a course.
- * Expects idToken in header or body, courseId, facultyId, phase1, phase2 in body.
- */
+
 exports.submitFeedback = async (req, res) => {
   try {
     const idToken =
@@ -142,11 +138,7 @@ exports.submitFeedback = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
-/**
- * GET /api/student/feedback-status/:courseId
- * Checks if student already submitted feedback for a course.
- * Expects studentId in query or idToken in header/query.
- */
+
 exports.checkFeedbackStatus = async (req, res) => {
   try {
     const { courseId, facultyId } = req.params;
@@ -211,10 +203,7 @@ exports.checkFeedbackStatus = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
-/**
- * GET /api/student/course/:courseId/faculty
- * Returns faculty details for a selected course.
- */
+
 exports.getCourseFaculty = async (req, res) => {
   try {
     const { courseId } = req.params;

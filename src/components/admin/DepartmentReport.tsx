@@ -15,6 +15,7 @@ interface DepartmentReportProps {
   semester: string;
   section: string;
   phase: string;
+  submittedDate: string;
   facultyRows: FacultyAnalysisRow[];
   avgRating: string | number;
   avgPercent: string | number;
@@ -29,6 +30,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
   semester,
   section,
   phase,
+  submittedDate,
   facultyRows,
   avgRating,
   avgPercent,
@@ -124,6 +126,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
           <div><b>Phase:</b> {phase}</div>
+          <div><b>SubmittedDate:</b> {submittedDate}</div>
         </div>
         <div>
           <div><b>Year:</b> {year}</div>

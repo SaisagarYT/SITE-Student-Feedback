@@ -1,6 +1,7 @@
 import React from "react";
 
 export type ReportRow = {
+  submittedDate: string;
   totalStudents: number | undefined;
   submitted: number | undefined;
   facultyId: string;

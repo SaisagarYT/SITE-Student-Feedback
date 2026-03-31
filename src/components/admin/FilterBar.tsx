@@ -77,7 +77,7 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         onChange={e => setFilters(f => ({ ...f, semester: e.target.value }))}
         disabled={!filters.program}
       >
-        <option value="">Semester</option>
+        <option value="">Year & Sem</option>
         <option value="I-I">I-I</option>
         <option value="I-II">I-II</option>
         <option value="II-I">II-I</option>

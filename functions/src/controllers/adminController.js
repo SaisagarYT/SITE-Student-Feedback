@@ -197,6 +197,7 @@ const getAdminReport = async (req, res) => {
           responses: [],
           submissions: 0,
           perQuestion: {},
+          submittedDates: [],
         });
       }
 
@@ -232,6 +233,10 @@ const getAdminReport = async (req, res) => {
 
       map.get(key).responses.push(avg);
       map.get(key).submissions += 1;
+
+      // Track submitted date for this feedback
+      const submittedAt = f.submittedAt?.toDate ? f.submittedAt.toDate() : new Date(f.submittedAt);
+      map.get(key).submittedDates.push(submittedAt);
     });
 
     /* ----------------------------- */
@@ -314,6 +319,30 @@ const getAdminReport = async (req, res) => {
 
         perQuestionAverages,
         perQuestionCounts,
+
+        // Add most common submitted date for this faculty-course
+        submittedDate: (value.submittedDates && value.submittedDates.length > 0)
+          ? (() => {
+              // Convert all dates to yyyy-mm-dd string for grouping
+              const dateStrings = value.submittedDates.map(d => {
+                const dt = new Date(d);
+                return dt.toISOString().split('T')[0];
+              });
+              // Count occurrences
+              const freq = {};
+              dateStrings.forEach(ds => { freq[ds] = (freq[ds] || 0) + 1; });
+              // Find the most common date (mode)
+              let maxCount = 0, modeDate = null;
+              for (const ds in freq) {
+                if (freq[ds] > maxCount) {
+                  maxCount = freq[ds];
+                  modeDate = ds;
+                }
+              }
+              // Return as Date object (midnight UTC)
+              return modeDate ? new Date(modeDate) : null;
+            })()
+          : null,
       });
     });
 
