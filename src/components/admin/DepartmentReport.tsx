@@ -207,6 +207,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
               <th style={th}>Question</th>
               <th style={th}>Overall Rating</th>
               <th style={th}>Overall %</th>
+               <th style={th}>Signature</th>
             </tr>
           </thead>
 
@@ -217,6 +218,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
                 <td style={td}>{row.question}</td>
                 <td style={tdCenter}>{row.overallRating}</td>
                 <td style={tdCenter}>{row.overallPercent}</td>
+                  <td style={td}></td>
               </tr>
             ))}
 
@@ -225,6 +227,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
               <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>Avg:</td>
               <td style={{ ...tdCenter, fontWeight: 600 }}>{avgRating}</td>
               <td style={{ ...tdCenter, fontWeight: 600 }}>{avgPercent}</td>
+                <td style={td}></td>
             </tr>
           </tbody>
         </table>

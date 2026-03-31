@@ -31,74 +31,117 @@ const SectionReport: React.FC<SectionReportProps> = ({
   setSection,
   rows,
 }) => {
-  // Helper to convert semester string to number if possible
+
   function getSemesterNumber(sem: string) {
     const romanMap: Record<string, number> = {
-      'I': 1,
-      'II': 2,
-      'III': 3,
-      'IV': 4,
+      I: 1, II: 2, III: 3, IV: 4,
     };
     const match = sem.match(/^(I|II|III|IV)-(I|II)$/);
     if (match) {
       const year = romanMap[match[1]];
-      const part = match[2] === 'I' ? 1 : 2;
+      const part = match[2] === "I" ? 1 : 2;
       return (year - 1) * 2 + part;
     }
     return sem;
   }
+
   return (
     <div
-      className="section-report-print w-full"
-      style={{ fontFamily: 'serif', color: '#222', padding: '8mm', background: '#fff', width: '100%' }}
+      className="section-report-print"
+      style={{
+        fontFamily: "serif",
+        color: "#222",
+        padding: 24,     // BIG for screen
+        background: "#fff",
+        width: "100%",
+        fontSize: 16     // BIG for screen
+      }}
     >
       <style>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 12mm;
-          }
-          html, body {
-            margin: 0;
-            padding: 0;
-          }
-          body * {
-            visibility: hidden;
-          }
-          .section-report-print,
-          .section-report-print * {
-            visibility: visible;
-          }
-          .section-report-print {
-            width: 100%;
-            max-width: 190mm;
-            max-height: 270mm;
-            overflow: hidden;
-            margin: auto;
-            page-break-inside: avoid;
-          }
-          .no-break {
-            page-break-inside: avoid;
-          }
-          .signatures {
-            margin-top: 20mm;
-          }
-        }
+        /* ================= SCREEN ================= */
         @media screen {
           .section-report-print {
             max-height: 80vh;
             overflow-y: auto;
           }
         }
+
+        /* ================= PRINT ================= */
+        @media print {
+          @page {
+            size: A4;
+            margin: 6mm;
+          }
+
+          html, body {
+            margin: 0;
+            padding: 0;
+          }
+
+          body * {
+            visibility: hidden;
+          }
+
+          .section-report-print,
+          .section-report-print * {
+            visibility: visible;
+          }
+
+          .section-report-print {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            margin: 0;
+
+            /* shrink ONLY for print */
+            font-size: 12px;
+            padding: 10px;
+          }
+
+          img {
+            max-height: 22mm !important;
+          }
+
+          .header-title {
+            font-size: 16px !important;
+          }
+
+          .header-subtitle {
+            font-size: 14px !important;
+          }
+
+          .body-text {
+            font-size: 12px !important;
+          }
+
+          table {
+            font-size: 11px !important;
+            border-collapse: collapse;
+          }
+
+          th, td {
+            padding: 3px !important;
+            line-height: 1.2;
+          }
+
+          tr {
+            page-break-inside: avoid;
+          }
+
+          .signatures {
+            margin-top: 8mm !important;
+          }
+        }
       `}</style>
+
       {/* SECTION FILTER */}
-      <div className="mb-4 print:hidden" style={{ textAlign: 'right' }}>
-        <label htmlFor="section-select" className="mr-2 font-semibold">Section:</label>
+      <div style={{ textAlign: "right", marginBottom: 12 }} className="print:hidden">
+        <label style={{ marginRight: 8, fontWeight: 600 }}>Section:</label>
         <select
-          id="section-select"
           value={section}
           onChange={e => setSection(e.target.value)}
-          className="border rounded px-2 py-1"
+          style={{ border: "1px solid #ccc", padding: "4px 8px", borderRadius: 4 }}
         >
           <option value="">All</option>
           <option value="A">A</option>
@@ -107,76 +150,114 @@ const SectionReport: React.FC<SectionReportProps> = ({
           <option value="D">D</option>
         </select>
       </div>
+
       {/* HEADER */}
-      <div className="no-break" style={{ width: '100%', marginBottom: 2 }}>
+      <div style={{ marginBottom: 8 }}>
         <img
           src="/sasi_logo_main.png"
           alt="SASI Logo"
           style={{
-            maxWidth: '170mm',
-            maxHeight: '28mm',
-            width: '100%',
-            objectFit: 'contain',
-            display: 'block',
-            margin: '0 auto',
+            width: "100%",
+            maxWidth: "170mm",
+            maxHeight: "35mm", // big for screen
+            objectFit: "contain",
+            display: "block",
+            margin: "0 auto",
           }}
         />
-        <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 14, marginTop: 2 }}>
+
+        <div className="header-subtitle" style={{ textAlign: "center", fontWeight: 600 }}>
           Academic Year {academicYear}
         </div>
-        <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 16, margin: '2px 0' }}>
+
+        <div className="header-title" style={{ textAlign: "center", fontWeight: 600 }}>
           Student Feedback Analysis
         </div>
       </div>
+
       {/* BODY */}
-      <div className="no-break" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14 }}>
+      <div
+        className="body-text"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
         <div>
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
           <div><b>Phase:</b> {phase}</div>
         </div>
+
         <div>
           <div><b>Year:</b> {year}</div>
           <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
           <div><b>Section:</b> {section}</div>
         </div>
       </div>
+
       {/* TABLE */}
       <div>
-        <div style={{ fontWeight: 600, margin: '8px 0 4px 0', fontSize: 14 }}>Sectionwise Analysis</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, margin: "16px 0 8px" }}>
+          Sectionwise Analysis
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ border: '1px solid #222', padding: 4 }}>S.no</th>
-              <th style={{ border: '1px solid #222', padding: 4 }}>Name of Faculty</th>
-              <th style={{ border: '1px solid #222', padding: 4 }}>Course</th>
-              <th style={{ border: '1px solid #222', padding: 4 }}>Overall %</th>
-              <th style={{ border: '1px solid #222', padding: 4 }}>Category</th>
-              <th style={{ border: '1px solid #222', padding: 4 }}>Signature</th>
+              <th style={th}>S.No</th>
+              <th style={th}>Faculty</th>
+              <th style={th}>Course</th>
+              <th style={th}>Percentage (%)</th>
+              <th style={th}>Category</th>
             </tr>
           </thead>
+
           <tbody>
             {rows.map((row, idx) => (
               <tr key={idx}>
-                <td style={{ border: '1px solid #222', padding: 4, textAlign: 'center' }}>{row.sNo}</td>
-                <td style={{ border: '1px solid #222', padding: 4 }}>{row.facultyName}</td>
-                <td style={{ border: '1px solid #222', padding: 4 }}>{row.course}</td>
-                <td style={{ border: '1px solid #222', padding: 4, textAlign: 'center' }}>{row.overallPercent}</td>
-                <td style={{ border: '1px solid #222', padding: 4 }}>{row.category}</td>
-                <td style={{ border: '1px solid #222', padding: 4 }}></td>
+                <td style={tdCenter}>{row.sNo}</td>
+                <td style={td}>{row.facultyName}</td>
+                <td style={td}>{row.course}</td>
+                <td style={tdCenter}>{row.overallPercent}</td>
+                <td style={td}>{row.category}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
       {/* FOOTER */}
-      <div className="no-break signatures" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
+      <div
+        className="signatures"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 40, // big for screen
+        }}
+      >
         <div>HOD</div>
-        <div>Dean (Academic&apos;s)</div>
+        <div>Dean (Academic)</div>
         <div>Principal</div>
       </div>
     </div>
   );
+};
+
+const th = {
+  border: "1px solid #222",
+  padding: 6,
+};
+
+const td = {
+  border: "1px solid #222",
+  padding: 6,
+};
+
+const tdCenter = {
+  ...td,
+  textAlign: "center" as const,
 };
 
 export default SectionReport;
