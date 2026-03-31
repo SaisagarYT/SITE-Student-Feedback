@@ -1,6 +1,18 @@
 
 "use client";
 
+
+
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import CustomDropdown from "@/components/common/CustomDropdown";
+import { getAuth } from "firebase/auth";
+import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getPhase2Active } from "@/api";
+import gsap from "gsap";
+import { Icon } from "@iconify/react";
+import FeedbackHeader from "@/components/feedback/FeedbackHeader";
+import PhaseSection from "@/components/feedback/PhaseSection";
+import { feedbackPhases } from "@/data/questions";
+
 // Helper to extract ratings from phase object
 function extractRatings(phaseObj: unknown): Record<string, number> {
   if (!phaseObj) return {};
@@ -10,23 +22,6 @@ function extractRatings(phaseObj: unknown): Record<string, number> {
   });
   return ratings;
 }
-// DEBUG: Confirm component is mounting
-// Fetch feedback status from backend on mount
-// ...removed debug log...
-// Move these hooks inside the HomePage component
-
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-
-
-
-import { getAuth } from "firebase/auth";
-import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getPhase2Active } from "@/api";
-import gsap from "gsap";
-import { Icon } from "@iconify/react";
-import FeedbackHeader from "@/components/feedback/FeedbackHeader";
-import PhaseSection from "@/components/feedback/PhaseSection";
-import { feedbackPhases } from "@/data/questions";
-
 // Define a Course type for type safety
 type Faculty = { facultyId: string; facultyName: string; email?: string; designation?: string };
 type Course = {
@@ -65,72 +60,65 @@ export default function HomePage() {
 
   // When selectedCourse changes, reset selectedFaculty to first faculty
   useEffect(() => {
-      if (selectedCourse?.faculties?.length && selectedCourse.faculties[0]) {
-        setSelectedFaculty(selectedCourse.faculties[0]);
-      } else {
-        setSelectedFaculty(null);
-      }
-    }, [selectedCourse]);
-      // Re-fetch feedback status when selectedFaculty changes
-      useEffect(() => {
-        if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
-        // Fetch feedback for the selected course and faculty
-        (async () => {
-          try {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; token=`);
-            const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
-            // Fetch phase 1 feedback
-            const feedback1 = await getStudentFeedbackByCourse(
-              selectedCourse.courseId,
-              selectedFaculty?.facultyId,
-              token
-            );
-            console.log('Phase 1 feedback response:', feedback1);
-            // Fetch phase 2 feedback
-            const feedback2 = await getStudentFeedbackByCourse(
-              selectedCourse.courseId,
-              selectedFaculty?.facultyId,
-              token
-            );
-            // If backend returns {submitted: true, phase1: {...}, phase2: null}, treat as phase1 submitted
-            // Define a type for backend feedback response
-            type BackendFeedback = {
-              submitted?: boolean;
-              phase1?: { ratings?: Record<string, number>; remark?: string } | null;
-              phase2?: { ratings?: Record<string, number>; remark?: string } | null;
-            };
+    if (selectedCourse?.faculties?.length && selectedCourse.faculties[0]) {
+      setSelectedFaculty(selectedCourse.faculties[0]);
+    } else {
+      setSelectedFaculty(null);
+    }
+  }, [selectedCourse]);
 
-            function isBackendFeedback(obj: unknown): obj is BackendFeedback {
-              return (
-                typeof obj === 'object' && obj !== null &&
-                ('submitted' in obj || 'phase1' in obj || 'phase2' in obj)
-              );
-            }
-
-            const fb1: BackendFeedback = isBackendFeedback(feedback1) ? feedback1 : {};
-            const fb2: BackendFeedback = isBackendFeedback(feedback2) ? feedback2 : {};
-
-            setPhaseState({
-              phase1: fb1.phase1 && typeof fb1.phase1.ratings === 'object'
-                ? { ratings: extractRatings(fb1.phase1.ratings), remark: fb1.phase1.remark || "" }
-                : { ratings: {}, remark: "" },
-              phase2: fb2.phase2 && typeof fb2.phase2.ratings === 'object'
-                ? { ratings: extractRatings(fb2.phase2.ratings), remark: fb2.phase2.remark || "" }
-                : { ratings: {}, remark: "" },
-            });
-            setPhase1AlreadySubmitted(!!(fb1.submitted && fb1.phase1));
-            setPhase2AlreadySubmitted(!!(fb2.submitted && fb2.phase2));
-          } catch {
-            setPhase1AlreadySubmitted(false);
-            setPhase2AlreadySubmitted(false);
-            setPhaseState({
-              phase1: { ratings: {}, remark: "" },
-              phase2: { ratings: {}, remark: "" },
-            });
-          }
-        })();
-      }, [authChecked, isAuthed, selectedCourse, selectedFaculty]);
+  // --- Request tracking and debounce for feedback status ---
+  const feedbackStatusRequestRef = useRef(0);
+  const [loadingStatus, setLoadingStatus] = useState(false);
+  useEffect(() => {
+    if (!authChecked || !isAuthed || !selectedCourse || !selectedFaculty) return;
+    setLoadingStatus(true);
+    const currentRequest = ++feedbackStatusRequestRef.current;
+    const timeoutId = setTimeout(() => {
+      (async () => {
+        try {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; token=`);
+          const token = parts.length === 2 ? parts.pop()?.split(';').shift() ?? "" : "";
+          const resRaw = await getStudentFeedbackByCourse(
+            selectedCourse.courseId,
+            selectedFaculty?.facultyId,
+            token
+          );
+          // Ignore stale responses
+          if (currentRequest !== feedbackStatusRequestRef.current) return;
+          // Type assertion for backend feedback
+          type BackendFeedback = {
+            submitted?: boolean;
+            phase1?: { ratings?: Record<string, number>; remark?: string } | null;
+            phase2?: { ratings?: Record<string, number>; remark?: string } | null;
+          };
+          const res = resRaw as BackendFeedback | null;
+          setPhase1AlreadySubmitted(!!res?.phase1);
+          setPhase2AlreadySubmitted(!!res?.phase2);
+          setPhaseState({
+            phase1: res?.phase1 && typeof res.phase1.ratings === 'object'
+              ? { ratings: extractRatings(res.phase1.ratings), remark: res.phase1.remark || "" }
+              : { ratings: {}, remark: "" },
+            phase2: res?.phase2 && typeof res.phase2.ratings === 'object'
+              ? { ratings: extractRatings(res.phase2.ratings), remark: res.phase2.remark || "" }
+              : { ratings: {}, remark: "" },
+          });
+        } catch {
+          if (currentRequest !== feedbackStatusRequestRef.current) return;
+          setPhase1AlreadySubmitted(false);
+          setPhase2AlreadySubmitted(false);
+          setPhaseState({
+            phase1: { ratings: {}, remark: "" },
+            phase2: { ratings: {}, remark: "" },
+          });
+        } finally {
+          if (currentRequest === feedbackStatusRequestRef.current) setLoadingStatus(false);
+        }
+      })();
+    }, 200); // Debounce 200ms
+    return () => clearTimeout(timeoutId);
+  }, [authChecked, isAuthed, selectedCourse, selectedFaculty]);
     // Fetch phase2Active flag on mount
     useEffect(() => {
       async function fetchPhase2Active() {
@@ -518,49 +506,40 @@ useEffect(() => {
                     Select course
                   </label>
                   <div className="relative mb-4">
-                    <select
-                      id="course-select"
+                    <CustomDropdown
+                      options={courses.map(course => ({ label: course.courseName, value: course.courseId }))}
                       value={selectedCourse?.courseId || ""}
-                      onChange={e => {
-                        const course = courses.find(c => c.courseId === e.target.value) || null;
+                      onChange={(val: string) => {
+                        const course = courses.find(c => c.courseId === val) || null;
                         setSelectedCourse(course ? course : null);
                       }}
-                      className="w-full appearance-none rounded-2xl border border-white/20 bg-white/14 px-4 py-3 pr-11 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] outline-none transition focus:border-white/50 focus:bg-white/18 focus:ring-2 focus:ring-white/18"
-                    >
-                      <option value="">Select course</option>
-                      {courses.map(course => (
-                        <option key={course.courseId} value={course.courseId} className="text-(--ink)">
-                          {course.courseName}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-white/78">
-                      <Icon icon="material-symbols:keyboard-arrow-down-rounded" className="text-2xl" />
-                    </span>
+                      placeholder="Select course"
+                      className="mb-2"
+                      disabled={loadingStatus}
+                    />
                   </div>
                   {/* Faculty info display */}
                   <div className="mb-2">
                     {facultyLoading && <span className="text-base text-white/80">Loading faculty...</span>}
                     {!facultyLoading && !!selectedCourse?.faculties && selectedCourse.faculties.length > 0 && (
                       <>
-                        <label htmlFor="faculty-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
+                        <label className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
                           Select faculty
                         </label>
-                        <select
-                          id="faculty-select"
+                        <CustomDropdown
+                          options={selectedCourse.faculties.map(faculty => ({
+                            label: faculty.facultyName + (faculty.designation ? ` (${faculty.designation})` : ""),
+                            value: faculty.facultyId
+                          }))}
                           value={selectedFaculty?.facultyId || ""}
-                          onChange={e => {
-                            const faculty = selectedCourse?.faculties?.find(f => f.facultyId === e.target.value) || null;
+                          onChange={(val: string) => {
+                            const faculty = selectedCourse.faculties.find(f => f.facultyId === val) || null;
                             setSelectedFaculty(faculty);
                           }}
-                          className="w-full appearance-none rounded-2xl border border-white/20 bg-white/14 px-4 py-3 pr-11 text-sm font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] outline-none transition focus:border-white/50 focus:bg-white/18 focus:ring-2 focus:ring-white/18"
-                        >
-                          {selectedCourse?.faculties?.map(faculty => (
-                            <option key={faculty.facultyId} value={faculty.facultyId} className="text-(--ink)">
-                              {faculty.facultyName} {faculty.designation ? `(${faculty.designation})` : ""}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder="Select faculty"
+                          className="mb-2"
+                          disabled={loadingStatus}
+                        />
                         {selectedFaculty && selectedFaculty.email && (
                           <div className="text-sm text-white/80 mt-1">Email: <span className="font-medium">{selectedFaculty.email}</span></div>
                         )}

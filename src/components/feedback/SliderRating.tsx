@@ -68,7 +68,7 @@ const SliderRating = ({ id, value: propValue, onChange, disabled = false }: Slid
             className={clsx(
               "flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-[11px] transition duration-300 sm:text-xs",
               value === entry.value
-                ? "border-[var(--brand)] bg-[rgba(10,152,146,0.1)] text-[var(--ink)] shadow-[0_0_0_1px_rgba(10,152,146,0.16),0_16px_32px_rgba(10,152,146,0.1)]"
+                ? "border-[var(--brand)] bg-[var(--brand)] text-white shadow-[0_0_0_2px_rgba(10,152,146,0.18),0_16px_32px_rgba(10,152,146,0.12)]"
                 : "border-[var(--line)] bg-[var(--surface-soft)] text-[var(--muted)] hover:border-[var(--brand)] hover:text-[var(--ink)]"
             )}
           >
@@ -90,7 +90,7 @@ const SliderRating = ({ id, value: propValue, onChange, disabled = false }: Slid
               icon={value === entry.value ? "material-symbols:check-circle-outline" : "material-symbols:radio-button-unchecked"}
               className={clsx(
                 "text-base",
-                value === entry.value ? "text-[var(--brand-deep)]" : "text-[var(--muted)]",
+                value === entry.value ? "text-white" : "text-[var(--muted)]",
                 disabled && "opacity-50"
               )}
             />
