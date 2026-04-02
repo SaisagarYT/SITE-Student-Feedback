@@ -1,3 +1,14 @@
+/**
+ * List all feedbackreport years and their semesters with data (admin)
+ * @returns {Promise<Array>} Array of { year, semesters: [{ semester, ...data }] }
+ */
+export async function getFeedbackReportYears() {
+  const response = await fetch(`${BASE_URL}/api/admin/feedbackreport/years`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Failed to fetch feedback report years");
+  return response.json();
+}
 // Unified admin dashboard analytics API fetcher
 // Use this for all dashboard analytics in the frontend
 
@@ -191,4 +202,35 @@ export async function getCourseFaculty(courseId) {
     throw new Error("Failed to fetch faculty");
   }
   return res.json();
+}
+
+/**
+ * Set feedback phase dates for a semester in a given academic year (admin)
+ * @param {object} params - { academicYear, semester, phase1Date, phase2Date }
+ * @returns {Promise<object>} Backend response
+ */
+export async function setFeedbackReportDates(params) {
+  const response = await fetch(`${BASE_URL}/api/admin/feedbackreport/dates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) throw new Error("Failed to set feedback report dates");
+  return response.json();
+}
+
+/**
+ * Get feedback phase dates for a semester in a given academic year (admin)
+ * @param {object} params - { academicYear, semester }
+ * @returns {Promise<object>} Backend response
+ */
+export async function getFeedbackReportDates(params) {
+  const query = new URLSearchParams(params).toString();
+  const response = await fetch(`${BASE_URL}/api/admin/feedbackreport/dates?${query}`, {
+    credentials: "include"
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Failed to get feedback report dates");
+  return response.json();
 }

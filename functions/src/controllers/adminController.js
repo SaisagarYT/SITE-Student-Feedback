@@ -10,6 +10,58 @@ const { onRequest } = require('firebase-functions/v2/https');
 // Firebase parameterized secret for JWT (rename to JWT_SECRET for clarity)
 const jwtSecret = defineSecret('HTTP_FEEDBACK_SECRET'); // used for secret registration only
 
+
+// Get feedback phase dates for a semester in a given academic year (new structure)
+const getFeedbackReportDates = async (req, res) => {
+  try {
+    const { academicYear, semester } = req.query;
+    if (!academicYear || !semester) {
+      return res.status(400).json({ error: "Missing required query params" });
+    }
+    const semesterRef = db.collection("feedbackreport").doc(academicYear).collection(semester);
+    const [phase1Doc, phase2Doc] = await Promise.all([
+      semesterRef.doc("phase1report").get(),
+      semesterRef.doc("phase2report").get()
+    ]);
+    const result = {};
+    if (phase1Doc.exists) {
+      result.phase1Date = phase1Doc.data().date;
+    }
+    if (phase2Doc.exists) {
+      result.phase2Date = phase2Doc.data().date;
+    }
+    return res.json(result);
+  } catch (error) {
+    console.error("getFeedbackReportDates error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+// List all feedbackreport years and their semesters with data
+const listFeedbackReportYears = async (req, res) => {
+  try {
+    const yearsSnap = await db.collection("feedbackreport").get();
+    if (yearsSnap.empty) {
+      return res.json([]); // No years present
+    }
+    const result = [];
+    for (const yearDoc of yearsSnap.docs) {
+      const yearId = yearDoc.id;
+      const semestersSnap = await db.collection("feedbackreport").doc(yearId).collection("semesters").get();
+      if (!semestersSnap.empty) {
+        const semesters = semestersSnap.docs.map(doc => ({
+          semester: doc.id,
+          ...doc.data()
+        }));
+        result.push({ year: yearId, semesters });
+      }
+    }
+    return res.json(result);
+  } catch (error) {
+    console.error("listFeedbackReportYears error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 // Middleware to verify admin JWT
 const verifyAdmin = async (req, res, next) => {
   try {
@@ -357,9 +409,46 @@ const getAdminReport = async (req, res) => {
   }
 };
 
+
+const setFeedbackReportDates = async (req, res) => {
+  try {
+    const { academicYear, semester, phase1Date, phase2Date } = req.body;
+    if (!academicYear || !semester) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    if (!phase1Date && !phase2Date) {
+      return res.status(400).json({ error: "At least one phase date required" });
+    }
+    // Ensure parent document exists
+    await db.collection("feedbackreport").doc(academicYear).set({ createdAt: new Date() }, { merge: true });
+
+    // Store phase1report and/or phase2report as documents in the semester subcollection
+    const semesterRef = db.collection("feedbackreport").doc(academicYear).collection(semester);
+    const updates = [];
+    if (phase1Date) {
+      updates.push(
+        semesterRef.doc("phase1report").set({ date: new Date(phase1Date), updatedAt: new Date() }, { merge: true })
+      );
+    }
+    if (phase2Date) {
+      updates.push(
+        semesterRef.doc("phase2report").set({ date: new Date(phase2Date), updatedAt: new Date() }, { merge: true })
+      );
+    }
+    await Promise.all(updates);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("setFeedbackReportDates error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAdminReport,
   logoutAdmin,
   verifyAdmin,
-  loginAdmin
+  loginAdmin,
+  setFeedbackReportDates,
+  getFeedbackReportDates,
+  listFeedbackReportYears
 };

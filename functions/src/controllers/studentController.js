@@ -47,18 +47,23 @@ exports.submitFeedback = async (req, res) => {
     // If semester ends with -I (ODD), academic year is currentYear-nextYear
     // If semester ends with -II (EVEN), academic year is (currentYear-1)-currentYear
     let academicYear = '';
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    if (semType === 'ODD') {
-      // e.g., 2025-26 for ODD semester in 2025
-      academicYear = `${currentYear}-${String((currentYear + 1) % 100).padStart(2, '0')}`;
-    } else if (semType === 'EVEN') {
-      // e.g., 2025-26 for EVEN semester in 2026
-      academicYear = `${currentYear - 1}-${String(currentYear % 100).padStart(2, '0')}`;
-    }
-    if (!/^\d{4}-\d{2}$/.test(academicYear)) {
-      return res.status(400).json({ error: "Failed to derive academicYear. Check semester and server date." });
-    }
+const now = new Date();
+const currentYear = now.getFullYear();
+
+if (semType === 'ODD') {
+  // ODD semester belongs to current academic start year
+  academicYear = `${currentYear}-${currentYear + 1}`;
+} else if (semType === 'EVEN') {
+  // EVEN semester belongs to previous academic start year
+  academicYear = `${currentYear - 1}-${currentYear}`;
+} else {
+  return res.status(400).json({ error: "Invalid semType (must be ODD or EVEN)" });
+}
+
+// Correct validation for YYYY-YYYY
+if (!/^\d{4}-\d{4}$/.test(academicYear)) {
+  return res.status(400).json({ error: "Invalid academicYear format" });
+}
 
 
     // Determine phase and set feedbackId accordingly
@@ -168,20 +173,29 @@ exports.checkFeedbackStatus = async (req, res) => {
     const studentId = studentSnap.docs[0].data().studentId;
 
 
-    // Derive academicYear using the same logic as submitFeedback
+    // Derive academicYear using the same logic as submitFeedback (YYYY-YYYY)
     const semester = studentSnap.docs[0].data().semester;
     let semType = '';
     if (typeof semester === 'string' && semester.trim() !== '') {
       semType = semester.trim().endsWith('-I') ? 'ODD' : 'EVEN';
     }
+    let academicYear = '';
     const now = new Date();
     const currentYear = now.getFullYear();
-    let academicYear = '';
     if (semType === 'ODD') {
-      academicYear = `${currentYear}-${String((currentYear + 1) % 100).padStart(2, '0')}`;
+      // ODD semester belongs to current academic start year
+      academicYear = `${currentYear}-${currentYear + 1}`;
     } else if (semType === 'EVEN') {
-      academicYear = `${currentYear - 1}-${String(currentYear % 100).padStart(2, '0')}`;
+      // EVEN semester belongs to previous academic start year
+      academicYear = `${currentYear - 1}-${currentYear}`;
+    } else {
+      return res.status(400).json({ error: "Invalid semType (must be ODD or EVEN)" });
     }
+    // Correct validation for YYYY-YYYY
+    if (!/^\d{4}-\d{4}$/.test(academicYear)) {
+      return res.status(400).json({ error: "Invalid academicYear format" });
+    }
+
     // Check both phase 1 and phase 2 feedback documents with academicYear
     const feedbackIdP1 = `${studentId}_${courseId}_${facultyId}_${academicYear}_p1`;
     const feedbackIdP2 = `${studentId}_${courseId}_${facultyId}_${academicYear}_p2`;

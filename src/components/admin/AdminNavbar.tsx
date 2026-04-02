@@ -48,7 +48,7 @@ const AdminNavbar = () => {
   return (
     <header data-reveal>
       <div className="border-b border-(--line) bg-(--surface) text-(--ink)">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-0 sm:px-6 lg:px-8">
           {/* Logo always visible */}
           <div className="flex items-center gap-3">
             <Image

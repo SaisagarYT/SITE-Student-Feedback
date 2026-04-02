@@ -1,9 +1,9 @@
-const express = require("express");
-const { getAllFaculty } = require("../controllers/facultyController");
+// const express = require("express");
+// const { getAllFaculty } = require("../controllers/facultyController");
 
-const router = express.Router();
+// const router = express.Router();
 
-// GET /api/faculty
-router.get("/", getAllFaculty);
+// // GET /api/faculty
+// router.get("/", getAllFaculty);
 
-module.exports = router;
+// module.exports = router;
