@@ -10,6 +10,39 @@ const { onRequest } = require('firebase-functions/v2/https');
 // Firebase parameterized secret for JWT (rename to JWT_SECRET for clarity)
 const jwtSecret = defineSecret('HTTP_FEEDBACK_SECRET'); // used for secret registration only
 
+function normalizeSemesterKey(semester) {
+  if (!semester) return null;
+  const normalized = String(semester).trim().toLowerCase().replace(/\s+/g, "");
+
+  if (["sem1", "semester1", "odd"].includes(normalized)) {
+    return "sem1";
+  }
+  if (["sem2", "semester2", "even"].includes(normalized)) {
+    return "sem2";
+  }
+
+  if (/-i$/.test(normalized) && !/-ii$/.test(normalized)) {
+    return "sem1";
+  }
+  if (/-ii$/.test(normalized)) {
+    return "sem2";
+  }
+
+  return null;
+}
+
+function toIsoDate(value) {
+  if (!value) return undefined;
+  if (typeof value?.toDate === "function") {
+    return value.toDate().toISOString();
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed.toISOString();
+}
+
 
 // Get feedback phase dates for a semester in a given academic year (new structure)
 const getFeedbackReportDates = async (req, res) => {
@@ -18,17 +51,21 @@ const getFeedbackReportDates = async (req, res) => {
     if (!academicYear || !semester) {
       return res.status(400).json({ error: "Missing required query params" });
     }
-    const semesterRef = db.collection("feedbackreport").doc(academicYear).collection(semester);
+    const semesterKey = normalizeSemesterKey(semester);
+    if (!semesterKey) {
+      return res.status(400).json({ error: "Invalid semester value" });
+    }
+    const semesterRef = db.collection("feedbackreport").doc(academicYear).collection(semesterKey);
     const [phase1Doc, phase2Doc] = await Promise.all([
       semesterRef.doc("phase1report").get(),
       semesterRef.doc("phase2report").get()
     ]);
     const result = {};
     if (phase1Doc.exists) {
-      result.phase1Date = phase1Doc.data().date;
+      result.phase1Date = toIsoDate(phase1Doc.data().date);
     }
     if (phase2Doc.exists) {
-      result.phase2Date = phase2Doc.data().date;
+      result.phase2Date = toIsoDate(phase2Doc.data().date);
     }
     return res.json(result);
   } catch (error) {
@@ -46,12 +83,41 @@ const listFeedbackReportYears = async (req, res) => {
     const result = [];
     for (const yearDoc of yearsSnap.docs) {
       const yearId = yearDoc.id;
-      const semestersSnap = await db.collection("feedbackreport").doc(yearId).collection("semesters").get();
-      if (!semestersSnap.empty) {
-        const semesters = semestersSnap.docs.map(doc => ({
-          semester: doc.id,
-          ...doc.data()
-        }));
+      const semesterCollections = await yearDoc.ref.listCollections();
+      const semesterRefMap = new Map();
+      for (const colRef of semesterCollections) {
+        const mapped = normalizeSemesterKey(colRef.id);
+        if (!mapped) continue;
+        if (!semesterRefMap.has(mapped) || colRef.id === mapped) {
+          semesterRefMap.set(mapped, colRef);
+        }
+      }
+
+      const semesters = [];
+      for (const semesterKey of ["sem1", "sem2"]) {
+        const colRef = semesterRefMap.get(semesterKey);
+        if (!colRef) continue;
+
+        const [phase1Doc, phase2Doc] = await Promise.all([
+          colRef.doc("phase1report").get(),
+          colRef.doc("phase2report").get()
+        ]);
+
+        if (!phase1Doc.exists && !phase2Doc.exists) {
+          continue;
+        }
+
+        const phase1Data = phase1Doc.exists ? phase1Doc.data() : {};
+        const phase2Data = phase2Doc.exists ? phase2Doc.data() : {};
+        semesters.push({
+          semester: semesterKey,
+          phase1Date: toIsoDate(phase1Data.date),
+          phase2Date: toIsoDate(phase2Data.date),
+          updatedAt: toIsoDate(phase2Data.updatedAt || phase1Data.updatedAt)
+        });
+      }
+
+      if (semesters.length > 0) {
         result.push({ year: yearId, semesters });
       }
     }
@@ -416,6 +482,10 @@ const setFeedbackReportDates = async (req, res) => {
     if (!academicYear || !semester) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+    const semesterKey = normalizeSemesterKey(semester);
+    if (!semesterKey) {
+      return res.status(400).json({ error: "Invalid semester value" });
+    }
     if (!phase1Date && !phase2Date) {
       return res.status(400).json({ error: "At least one phase date required" });
     }
@@ -423,7 +493,7 @@ const setFeedbackReportDates = async (req, res) => {
     await db.collection("feedbackreport").doc(academicYear).set({ createdAt: new Date() }, { merge: true });
 
     // Store phase1report and/or phase2report as documents in the semester subcollection
-    const semesterRef = db.collection("feedbackreport").doc(academicYear).collection(semester);
+    const semesterRef = db.collection("feedbackreport").doc(academicYear).collection(semesterKey);
     const updates = [];
     if (phase1Date) {
       updates.push(

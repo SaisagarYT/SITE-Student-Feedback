@@ -32,6 +32,12 @@ function FeedbackDatesSection() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
+  const formatSemesterLabel = (semester: string) => {
+    if (semester === "sem1") return "Semester 1";
+    if (semester === "sem2") return "Semester 2";
+    return semester;
+  };
+
 
   // Add form state
   const [form, setForm] = useState({ academicYear: "", semester: "", phase: "", date: "" });
@@ -132,7 +138,7 @@ function FeedbackDatesSection() {
                     <tbody>
                       {y.semesters.map((s: SemesterData) => (
                         <tr key={s.semester}>
-                          <td className="border px-2 py-1 font-semibold">{s.semester}</td>
+                          <td className="border px-2 py-1 font-semibold">{formatSemesterLabel(s.semester)}</td>
                           <td className="border px-2 py-1">{s.phase1Date ? new Date(s.phase1Date).toLocaleDateString() : "-"}</td>
                           <td className="border px-2 py-1">{s.phase2Date ? new Date(s.phase2Date).toLocaleDateString() : "-"}</td>
                           <td className="border px-2 py-1">{s.updatedAt ? new Date(s.updatedAt).toLocaleString() : "-"}</td>
@@ -162,14 +168,8 @@ function FeedbackDatesSection() {
                 <label className="block font-semibold mb-1">Semester</label>
                 <select value={form.semester} onChange={e => setForm(f => ({ ...f, semester: e.target.value }))} className="border rounded px-3 py-2 w-full" required>
                   <option value="">Select Semester</option>
-                  <option value="I-I">I-I</option>
-                  <option value="I-II">I-II</option>
-                  <option value="II-I">II-I</option>
-                  <option value="II-II">II-II</option>
-                  <option value="III-I">III-I</option>
-                  <option value="III-II">III-II</option>
-                  <option value="IV-I">IV-I</option>
-                  <option value="IV-II">IV-II</option>
+                  <option value="sem1">Semester 1</option>
+                  <option value="sem2">Semester 2</option>
                 </select>
               </div>
               <div>
@@ -204,7 +204,8 @@ export default function AdminDashboard() {
     semester: "",
     phase: "1",
     fromDate: "",
-    toDate: ""
+    toDate: "",
+    academicYear: ""
   });
   const [tab, setTab] = useState("section");
   const [data, setData] = useState<ReportRow[]>([]);
@@ -215,12 +216,14 @@ export default function AdminDashboard() {
       // setLoading(true); // removed unused loading state
       // Map phase to backend/DB format
       const phaseMapped = filters.phase === "2" ? "p2" : "p1";
-      // Use dynamic academicYear (example: from filter, or compute current year)
-      // Here, try to get from filters.academicYear, else compute
-      const now = new Date();
-      const year = now.getFullYear();
-      const nextYear = (year + 1).toString().slice(-2);
-      const academicYear = `${year}-${nextYear}`;
+      // Use academicYear from filters if set, else compute current year
+      let academicYear = filters.academicYear;
+      if (!academicYear) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const nextYear = (year + 1).toString().slice(-2);
+        academicYear = `${year}-${nextYear}`;
+      }
       const res = await getAdminReport({ ...filters, phase: phaseMapped, academicYear, view: tab });
       console.log(res.results)
       setData(res.results || []);

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { getFeedbackReportYears } from "../../api";
 
 type FilterBarProps = {
   filters: {
@@ -9,6 +10,7 @@ type FilterBarProps = {
     phase: string;
     fromDate: string;
     toDate: string;
+    academicYear: string;
   };
   setFilters: React.Dispatch<React.SetStateAction<{
     program: string;
@@ -18,6 +20,7 @@ type FilterBarProps = {
     phase: string;
     fromDate: string;
     toDate: string;
+    academicYear: string;
   }>>;
 };
 
@@ -29,6 +32,26 @@ const PROGRAM_DEPARTMENTS: Record<string, string[]> = {
 
 export default function FilterBar({ filters, setFilters }: FilterBarProps) {
   const departmentOptions = filters.program ? PROGRAM_DEPARTMENTS[filters.program] || [] : [];
+  const [yearOptions, setYearOptions] = useState<string[]>([]);
+  const [loadingYears, setLoadingYears] = useState(false);
+  const [yearError, setYearError] = useState<string | null>(null);
+
+  // Fetch year options when program is set
+  useEffect(() => {
+    if (!filters.program) {
+      return;
+    }
+    Promise.resolve().then(() => {
+      setLoadingYears(true);
+      setYearError(null);
+    });
+    getFeedbackReportYears()
+      .then((years: { year: string; semesters: unknown[] }[]) => {
+        setYearOptions(years.map((y) => y.year));
+      })
+      .catch(() => setYearError("Failed to load years"))
+      .finally(() => setLoadingYears(false));
+  }, [filters.program]);
 
   return (
     <div className="bg-white p-3 rounded shadow flex flex-wrap gap-3 mb-3">
@@ -45,7 +68,8 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
             semester: "",
             phase: "1",
             fromDate: "",
-            toDate: ""
+            toDate: "",
+            academicYear: ""
           });
         }}
       >
@@ -68,7 +92,19 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
         ))}
       </select>
 
-
+      {/* Academic Year Filter */}
+      <select
+        className="border p-2 rounded min-w-25"
+        value={filters.academicYear}
+        onChange={e => setFilters(f => ({ ...f, academicYear: e.target.value }))}
+        disabled={!filters.program || loadingYears || yearOptions.length === 0}
+      >
+        <option value="">{loadingYears ? "Loading..." : "Academic Year"}</option>
+        {yearOptions.map(year => (
+          <option key={year} value={year}>{year}</option>
+        ))}
+      </select>
+      {yearError && <span className="text-red-500 text-xs">{yearError}</span>}
 
       {/* Semester Filter */}
       <select
