@@ -6,6 +6,10 @@ interface SectionReportRow {
   course: string;
   overallPercent: string | number;
   category: string;
+  submittedDate?: string;
+  reportedDate?: string;
+  submitted?: number;
+  totalStudents?: number;
 }
 
 interface SectionReportProps {
@@ -31,6 +35,8 @@ const SectionReport: React.FC<SectionReportProps> = ({
   setSection,
   rows,
 }) => {
+  // Debug: log rows to check submittedDate and reportedDate
+  console.log("SectionReport rows:", rows);
 
   function getSemesterNumber(sem: string) {
     const romanMap: Record<string, number> = {
@@ -187,14 +193,26 @@ const SectionReport: React.FC<SectionReportProps> = ({
         <div>
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
-          <div><b>Phase:</b> {phase}</div>
+          <div><b>Phase:</b> {phase == "p1"? "1": "2"}</div>
+          {/* Show SubmittedDate and ReportedDate below Phase */}
+          <div><b>SubmittedDate:</b> {rows && rows.length > 0 ? rows[0].submittedDate || '-' : '-'}</div>
+          <div><b>ReportedDate:</b> {rows && rows.length > 0 ? rows[0].reportedDate || '-' : '-'}</div>
         </div>
 
-        <div>
-          <div><b>Year:</b> {year}</div>
-          <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
-          <div><b>Section:</b> {section}</div>
-        </div>
+        {/* Calculate overall submitted and total students for this section */}
+        {(() => {
+          const totalSubmitted = rows.reduce((sum, row) => sum + (typeof row.submitted === 'number' ? row.submitted : 0), 0);
+          const totalStudents = rows.reduce((sum, row) => sum + (typeof row.totalStudents === 'number' ? row.totalStudents : 0), 0);
+          return (
+            <div>
+              <div><b>Year:</b> {year}</div>
+              <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
+              <div><b>Section:</b> {section}</div>
+              <div><b>Submitted:</b> {totalSubmitted}</div>
+              <div><b>Total Students:</b> {totalStudents}</div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* TABLE */}

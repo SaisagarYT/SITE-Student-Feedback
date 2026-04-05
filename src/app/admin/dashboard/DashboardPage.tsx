@@ -209,11 +209,12 @@ export default function AdminDashboard() {
   });
   const [tab, setTab] = useState("section");
   const [data, setData] = useState<ReportRow[]>([]);
-  // Removed unused loading state in AdminDashboard
+  const [reportDates, setReportDates] = useState<{ phase1Date?: string; phase2Date?: string } | null>(null);
+
 
   const fetchReport = async () => {
     try {
-      // setLoading(true); // removed unused loading state
+      // setLoading(true); // removed unused loading state 
       // Map phase to backend/DB format
       const phaseMapped = filters.phase === "2" ? "p2" : "p1";
       // Use academicYear from filters if set, else compute current year
@@ -318,32 +319,53 @@ export default function AdminDashboard() {
         <AdminNavbar />
         <div className="flex-1 overflow-hidden flex flex-col p-4">
           <div className="print:hidden">
-            <FilterBar filters={filters} setFilters={setFilters} />
+            <FilterBar
+              filters={filters}
+              setFilters={setFilters}
+              onReportDatesFetched={dates => {
+                console.log("DashboardPage onReportDatesFetched callback received:", dates);
+                setReportDates(dates);
+              }}
+            />
             <Tabs tab={tab} setTab={setTab} />
           </div>
           {tab === "section" ? (
-            <SectionReport
-              academicYear={(function() {
-                const now = new Date();
-                const year = now.getFullYear();
-                const nextYear = (year + 1).toString().slice(-2);
-                return `${year}-${nextYear}`;
-              })()}
-              program={filters.program || "B.Tech"}
-              department={filters.branchId}
-              phase={filters.phase === "2" ? "p2" : "p1"}
-              year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
-              semester={filters.semester || "ODD"}
-              section={filters.section}
-              setSection={section => setFilters(f => ({ ...f, section }))}
-              rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => ({
-                sNo: idx + 1,
-                facultyName: row.facultyName || "",
-                course: row.courseName || "",
-                overallPercent: row.percentage != null ? row.percentage.toFixed(0) : "-",
-                category: row.category || "",
-              })) : []}
-            />
+              <SectionReport
+                academicYear={(function() {
+                  const now = new Date();
+                  const year = now.getFullYear();
+                  const nextYear = (year + 1).toString().slice(-2);
+                  return `${year}-${nextYear}`;
+                })()}
+                program={filters.program || "B.Tech"}
+                department={filters.branchId}
+                phase={filters.phase === "2" ? "p2" : "p1"}
+                year={(filters.semester && filters.semester.match(/^(I|II|III|IV)-(I|II)$/)) ? filters.semester.split('-')[0] : ""}
+                semester={filters.semester || "ODD"}
+                section={filters.section}
+                setSection={section => setFilters(f => ({ ...f, section }))}
+                rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => {
+                  let reportedDate = "-";
+                  if (reportDates) {
+                    if (filters.phase === "2" && reportDates.phase2Date) {
+                      reportedDate = new Date(reportDates.phase2Date).toISOString().split("T")[0];
+                    } else if (filters.phase === "1" && reportDates.phase1Date) {
+                      reportedDate = new Date(reportDates.phase1Date).toISOString().split("T")[0];
+                    }
+                  }
+                  return {
+                    sNo: idx + 1,
+                    facultyName: row.facultyName || "",
+                    course: row.courseName || "",
+                    overallPercent: row.percentage != null ? row.percentage.toFixed(0) : "-",
+                    category: row.category || "",
+                    submittedDate: row.submittedDate ? new Date(row.submittedDate).toISOString().split('T')[0] : "-",
+                    reportedDate,
+                    submitted: row.submitted,
+                    totalStudents: row.totalStudents,
+                  };
+                }) : []}
+              />
           ) : tab === "faculty" ? (
             <>
               <div className="mb-4 print:hidden">
@@ -362,26 +384,44 @@ export default function AdminDashboard() {
                 </select>
               </div>
               {selectedFacultyRow ? (
-                <DepartmentReport
-                  academicYear={(function() {
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const nextYear = (year + 1).toString().slice(-2);
-                    return `${year}-${nextYear}`;
-                  })()}
-                  program={filters.program || "B.Tech"}
-                  year="III"
-                  department={filters.branchId}
-                  semester={filters.semester || "ODD"}
-                  section={filters.section}
-                  phase={filters.phase === "2" ? "p2" : "p1"}
-                  facultyRows={facultyRows}
-                  avgRating={selectedFacultyRow.avgScore?.toFixed(2) || "-"}
-                  avgPercent={selectedFacultyRow.percentage?.toFixed(0) || "-"}
-                  submitted={selectedFacultyRow.submitted}
-                  totalStudents={selectedFacultyRow.totalStudents}
-                  submittedDate={selectedFacultyRow.submittedDate ? new Date(selectedFacultyRow.submittedDate).toISOString().split('T')[0] : "-"}
-                />
+                (() => {
+                  // Determine the correct reported date based on phase
+                  //
+                  let reportedDate = "-";
+                  if (reportDates) {
+                    if (filters.phase === "2" && reportDates.phase2Date) {
+                      reportedDate = new Date(reportDates.phase2Date).toISOString().split("T")[0];
+                    } else if (filters.phase === "1" && reportDates.phase1Date) {
+                      reportedDate = new Date(reportDates.phase1Date).toISOString().split("T")[0];
+                    }
+                  }
+                  //
+                  return (
+                    <DepartmentReport
+                      academicYear={(function() {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const nextYear = (year + 1).toString().slice(-2);
+                        return `${year}-${nextYear}`;
+                      })()}
+                      program={filters.program || "B.Tech"}
+                      year="III"
+                      department={filters.branchId}
+                      semester={filters.semester || "ODD"}
+                      section={filters.section}
+                      phase={filters.phase === "2" ? "p2" : "p1"}
+                      facultyRows={facultyRows}
+                      avgRating={selectedFacultyRow.avgScore?.toFixed(2) || "-"}
+                      avgPercent={selectedFacultyRow.percentage?.toFixed(0) || "-"}
+                      submitted={selectedFacultyRow.submitted}
+                      totalStudents={selectedFacultyRow.totalStudents}
+                      submittedDate={selectedFacultyRow.submittedDate ? new Date(selectedFacultyRow.submittedDate).toISOString().split('T')[0] : "-"}
+                      reportedDate={reportedDate}
+                      facultyDisplayName={facultyList.find(f => f.key === selectedFaculty)?.facultyName || ""}
+                      courseName={facultyList.find(f => f.key === selectedFaculty)?.courseName || ""}
+                    />
+                  );
+                })()
               ) : (
                 <div className="text-center text-gray-500">No faculty data available.</div>
               )}

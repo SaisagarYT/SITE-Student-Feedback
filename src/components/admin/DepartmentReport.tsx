@@ -16,12 +16,16 @@ interface DepartmentReportProps {
   section: string;
   phase: string;
   submittedDate: string;
+  reportedDate?: string;
   facultyRows: FacultyAnalysisRow[];
   avgRating: string | number;
   avgPercent: string | number;
   submitted?: number;
   totalStudents?: number;
+  facultyDisplayName?: string;
+  courseName?: string;
 }
+
 
 const DepartmentReport: React.FC<DepartmentReportProps> = ({
   program,
@@ -31,11 +35,14 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
   section,
   phase,
   submittedDate,
+  reportedDate,
   facultyRows,
   avgRating,
   avgPercent,
   submitted,
   totalStudents,
+  facultyDisplayName,
+  courseName,
 }) => {
 
   function getSemesterNumber(sem: string) {
@@ -173,15 +180,18 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           justifyContent: "space-between",
           marginBottom: 12,
         }}
-      >
+        >
         <div>
+          <b>Faculty:</b> {facultyDisplayName}
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
           <div><b>Phase:</b> {phase}</div>
           <div><b>SubmittedDate:</b> {submittedDate}</div>
+          <div><b>ReportedDate:</b> {reportedDate}</div>
         </div>
 
         <div>
+          <div><b>Course:</b> {courseName}</div>
           <div><b>Year:</b> {year}</div>
           <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
           <div><b>Section:</b> {section}</div>

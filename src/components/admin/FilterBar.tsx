@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { getFeedbackReportYears } from "../../api";
+import { getFeedbackReportYears, getFeedbackReportDates } from "../../api";
+
+type ReportDates = {
+  phase1Date?: string;
+  phase2Date?: string;
+};
 
 type FilterBarProps = {
   filters: {
@@ -22,6 +27,7 @@ type FilterBarProps = {
     toDate: string;
     academicYear: string;
   }>>;
+  onReportDatesFetched: (dates: ReportDates | null) => void;
 };
 
 const PROGRAM_DEPARTMENTS: Record<string, string[]> = {
@@ -30,11 +36,13 @@ const PROGRAM_DEPARTMENTS: Record<string, string[]> = {
   "MBA": ["MBA"],
 };
 
-export default function FilterBar({ filters, setFilters }: FilterBarProps) {
+export default function FilterBar({ filters, setFilters, onReportDatesFetched }: FilterBarProps) {
   const departmentOptions = filters.program ? PROGRAM_DEPARTMENTS[filters.program] || [] : [];
   const [yearOptions, setYearOptions] = useState<string[]>([]);
   const [loadingYears, setLoadingYears] = useState(false);
   const [yearError, setYearError] = useState<string | null>(null);
+  const [datesLoading, setDatesLoading] = useState(false);
+  const [datesError, setDatesError] = useState<string | null>(null);
 
   // Fetch year options when program is set
   useEffect(() => {
@@ -46,12 +54,43 @@ export default function FilterBar({ filters, setFilters }: FilterBarProps) {
       setYearError(null);
     });
     getFeedbackReportYears()
-      .then((years: { year: string; semesters: unknown[] }[]) => {
+      .then((years: { year: string; semesters: { semester: string; phase1Date?: string; phase2Date?: string; updatedAt?: string }[] }[]) => {
         setYearOptions(years.map((y) => y.year));
       })
       .catch(() => setYearError("Failed to load years"))
       .finally(() => setLoadingYears(false));
   }, [filters.program]);
+
+  // Fetch report dates when both academicYear and semester are set
+  useEffect(() => {
+    async function fetchDates() {
+      if (filters.academicYear && filters.semester) { 
+        setDatesLoading(true);
+        setDatesError(null);
+        try {
+          // Map semester to sem1/sem2
+          const semesterMapped = filters.semester.endsWith("-I") ? "sem1" : "sem2";
+          const dates: ReportDates = await getFeedbackReportDates({ academicYear: filters.academicYear, semester: semesterMapped });
+          if (typeof onReportDatesFetched === 'function') {
+            onReportDatesFetched(dates);
+          }
+        } catch (err) {
+          setDatesError("Failed to fetch report dates");
+          if (typeof onReportDatesFetched === 'function') {
+            onReportDatesFetched(null);
+          }
+        } finally {
+          setDatesLoading(false);
+        }
+      } else {
+        if (typeof onReportDatesFetched === 'function') {
+          onReportDatesFetched(null);
+        }
+      }
+    }
+    fetchDates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.academicYear, filters.semester]);
 
   return (
     <div className="bg-white p-3 rounded shadow flex flex-wrap gap-3 mb-3">
