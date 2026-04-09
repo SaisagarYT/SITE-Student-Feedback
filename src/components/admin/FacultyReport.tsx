@@ -105,7 +105,7 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
         <div>
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
-          <div><b>Phase:</b> {phase}</div>
+          <div><b>Phase:</b> {phase == "p1"?1:2}</div>
         </div>
         <div>
           <div><b>Year:</b> {year}</div>
@@ -148,11 +148,13 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
           </tbody>
         </table>
       </div>
+      
       {/* FOOTER */}
       <div className="no-break signatures" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
+      <p><b>Plan of Action By</b></p>
         <div>Signature of Faculty</div>
         <div>HOD</div>
-        <div>Dean (Academic) signature</div>
+        <div>Dean (Academic's) signature</div>
         <div>Principal signature</div>
       </div>
     </div>

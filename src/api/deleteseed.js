@@ -7,44 +7,20 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 
-/* ----------------------------- */
-/* Fix __dirname (ESM) */
-/* ----------------------------- */
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-/* ----------------------------- */
-/* Load Service Account */
-/* ----------------------------- */
 
 const serviceAccount = JSON.parse(
   readFileSync(new URL("./serviceAccountKey.json", import.meta.url))
 );
 
-/* ----------------------------- */
-/* Initialize Firebase */
-/* ----------------------------- */
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 
-/* ----------------------------- */
-/* Connect to your DB */
-/* ----------------------------- */
-
 const db = getFirestore("student-feedback");
 
-/* ----------------------------- */
-/* Collections to delete */
-/* ----------------------------- */
-
 const collections = ["students", "faculties", "courses"];
-
-/* ----------------------------- */
-/* Delete Collection (batched) */
-/* ----------------------------- */
 
 async function deleteCollection(collectionName, batchSize = 500) {
   const collectionRef = db.collection(collectionName);

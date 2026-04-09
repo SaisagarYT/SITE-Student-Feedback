@@ -173,7 +173,7 @@ const SectionReport: React.FC<SectionReportProps> = ({
         />
 
         <div className="header-subtitle" style={{ textAlign: "center", fontWeight: 600 }}>
-          Academic Year {academicYear}
+          Academic Year {academicYear} 
         </div>
 
         <div className="header-title" style={{ textAlign: "center", fontWeight: 600 }}>
@@ -229,6 +229,7 @@ const SectionReport: React.FC<SectionReportProps> = ({
               <th style={th}>Course</th>
               <th style={th}>Percentage (%)</th>
               <th style={th}>Category</th>
+              <th style={th}>Signature</th>
             </tr>
           </thead>
 
@@ -240,24 +241,35 @@ const SectionReport: React.FC<SectionReportProps> = ({
                 <td style={td}>{row.course}</td>
                 <td style={tdCenter}>{row.overallPercent}</td>
                 <td style={td}>{row.category}</td>
+                <td style={td}></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
+     <div>
+        <br /><br />
+        <p style={{fontSize:"17px", marginBottom:"7px"}}><b>Observed By</b></p>
+        <p>HOD</p>
+        <p>Principal</p>
+        <p>Plan of Action by Faculty</p>
+      </div>
+
       {/* FOOTER */}
-      <div
-        className="signatures"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginTop: 40, // big for screen
-        }}
-      >
-        <div>HOD</div>
-        <div>Dean (Academic)</div>
-        <div>Principal</div>
+      <div style={{marginTop:"60px"}}>
+        <div
+          className="signatures"
+          style={{
+            display: "flex",
+            justifyContent: "space-between"   // big on screen
+          }}
+        >
+          <div>Signature of Faculty</div>
+          <div>HOD</div>
+          <div>Dean (Academic's)</div>
+          <div>Principal</div>
+        </div>
       </div>
     </div>
   );

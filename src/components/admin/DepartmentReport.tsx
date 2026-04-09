@@ -23,12 +23,14 @@ interface DepartmentReportProps {
   submitted?: number;
   totalStudents?: number;
   facultyDisplayName?: string;
+  facultyId?: string;
   courseName?: string;
 }
 
 
 const DepartmentReport: React.FC<DepartmentReportProps> = ({
   program,
+  academicYear,
   year,
   department,
   semester,
@@ -42,6 +44,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
   submitted,
   totalStudents,
   facultyDisplayName,
+  facultyId,
   courseName,
 }) => {
 
@@ -164,11 +167,11 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
         />
 
         <div className="header-subtitle" style={{ textAlign: "center", fontWeight: 600 }}>
-          Academic year 2025-26
+          Academic Year {academicYear}
         </div>
 
         <div className="header-title" style={{ textAlign: "center", fontWeight: 600 }}>
-          Student Feedback Analysis
+          Student Feedback Individual Analysis on Teaching & Learning
         </div>
       </div>
 
@@ -183,9 +186,10 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
         >
         <div>
           <b>Faculty:</b> {facultyDisplayName}
+          <div><b>Faculty Id:</b> {facultyId}</div>
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
-          <div><b>Phase:</b> {phase}</div>
+          <div><b>Phase:</b> {phase == "p1"?1:2}</div>
           <div><b>SubmittedDate:</b> {submittedDate}</div>
           <div><b>ReportedDate:</b> {reportedDate}</div>
         </div>
@@ -243,21 +247,30 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
         </table>
       </div>
 
-      {/* FOOTER */}
-      <div
-        className="signatures"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginTop: 40,   // big on screen
-        }}
-      >
-        <div>Signature of Faculty</div>
-        <div>HOD</div>
-        <div>Dean (Academic)</div>
-        <div>Principal</div>
+      <div>
+        <br /><br />
+        <p style={{fontSize:"17px", marginBottom:"7px"}}><b>Observed By</b></p>
+        <p>HOD</p>
+        <p>Principal</p>
+        <p>Plan of Action by Faculty</p>
       </div>
-    </div>
+
+      {/* FOOTER */}
+      <div style={{marginTop:"60px"}}>
+        <div
+          className="signatures"
+          style={{
+            display: "flex",
+            justifyContent: "space-between"   // big on screen
+          }}
+        >
+          <div>Signature of Faculty</div>
+          <div>HOD</div>
+          <div>Dean (Academic's)</div>
+          <div>Principal</div>
+        </div>
+      </div>
+      </div>
   );
 };
 

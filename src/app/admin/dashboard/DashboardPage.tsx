@@ -331,12 +331,7 @@ export default function AdminDashboard() {
           </div>
           {tab === "section" ? (
               <SectionReport
-                academicYear={(function() {
-                  const now = new Date();
-                  const year = now.getFullYear();
-                  const nextYear = (year + 1).toString().slice(-2);
-                  return `${year}-${nextYear}`;
-                })()}
+                academicYear={filters.academicYear}
                 program={filters.program || "B.Tech"}
                 department={filters.branchId}
                 phase={filters.phase === "2" ? "p2" : "p1"}
@@ -398,12 +393,7 @@ export default function AdminDashboard() {
                   //
                   return (
                     <DepartmentReport
-                      academicYear={(function() {
-                        const now = new Date();
-                        const year = now.getFullYear();
-                        const nextYear = (year + 1).toString().slice(-2);
-                        return `${year}-${nextYear}`;
-                      })()}
+                      academicYear={filters.academicYear}
                       program={filters.program || "B.Tech"}
                       year="III"
                       department={filters.branchId}
@@ -418,6 +408,7 @@ export default function AdminDashboard() {
                       submittedDate={selectedFacultyRow.submittedDate ? new Date(selectedFacultyRow.submittedDate).toISOString().split('T')[0] : "-"}
                       reportedDate={reportedDate}
                       facultyDisplayName={facultyList.find(f => f.key === selectedFaculty)?.facultyName || ""}
+                      facultyId={facultyList.find(f => f.key === selectedFaculty)?.facultyId || ""}
                       courseName={facultyList.find(f => f.key === selectedFaculty)?.courseName || ""}
                     />
                   );

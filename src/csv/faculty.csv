@@ -1,22 +1,24 @@
-Faculty Id,FacultyName,Subject Id,Email,Designation,Branch Id
-S22ECE406,Mrs.P.Madhuri,23ECECT6010,vmadhuri@sasi.ac.in,Asst. Professor,ECE
-S11ECE002,Mrs.N.Sannajaaji,23ECECT6020,sannajaji@sasi.ac.in,Asst. Professor,ECE
-S24ECE407,Dr. U. Uma Maheswara Rao,23ECECT6030,umamaheswararao@sasi.ac.in,Asst. Professor,ECE
-S25ECE406,Dr.Winny Elizabeth Philip,23ECECP604B,winnyelizabethphilip@sasi.ac.in,Asst. Professor,ECE
-S09ECE269,Mr.T.Venkateswara Reddy,23ECECP605C,tvreddy@sasi.ac.in,Asst. Professor,ECE
-S22CSE505,Mrs.D.Amaravathi,21ECCSO606A,amaravathi@sasi.ac.in,Asst. Professor,CSE
-S22ECE406,Mrs.P.Madhuri,23ECECL6070,vmadhuri@sasi.ac.in,Asst. Professor,ECE
-S11ECE002,Mrs.N.Sannajaaji,23ECECL6080,"sannajaji@sasi.ac.in,tvreddy@sasi.ac.in",Asst. Professor,ECE
-S10ECE320,"MrV.V.N.Sujit,Dr.Sri Ramya",23ECECL6090,ramya.siraparapu@sasi.ac.in,Asst. Professor,ECE
-S19ECE413,Mr.M.Ravi Sankar,23ECEAC6100,mravi@sasi.ac.in,Asst. Professor,ECE
-S08CSE178,K. Sandeep,23CSCST6010,sandeepkone@sasi.ac.in,Associate.Proff,CSE
-S22CSE504,Dr. M. Parthiban,23CSCST6020,parthiban@sasiac.in,Professor,CSE
-S22CSE502,T. Uday,23CSCST6030,tmcuday@sasi.ac.in,Assistant.Prof,CSE
-S20CSE502,A. Durga Bhavani,23CSCSP604D,durga.alanka@sasi.ac.in,Associate.Proff,CSE
-S23CSE513,N. Divya Sri,23CSCSP605A,divya.narpina@sasi.ac.in,Assistant.Prof,CSE
-S07MEC89,Y. Raghuram,23CSMEO606A,yraghuram@sasi.ac.in,Assistant.Prof,MEC
-S22CSE504,Dr. M. Parthiban/ S. Karthikeyan,23CSCSL6070,parthiban@sasiac.in,Professor,CSE
-S08CSE178,T. Uday/ K. Sandeep,23CSCSL6080,sandeepkone@sasi.ac.in,Associate.Proff,CSE
-S25ECE405,Mrs.N.Kusuma,23ECECL6070,kusuma.n@sasi.ac.in,Asst. Professor,ECE
-S09ECE269,Mr.T.V.Reddy,23ECECL6080,tvreddy@sasi.ac.in,Asst. Professor,ECE
-S25ECE404,Dr.Sri Ramya,23ECECL6090,ramya.siraparapu@sasi.ac.in,Asst. Professor,ECE
+Faculty Id,FacultyName,Subject Id,Email,Designation,Branch,Program
+S20EEE205,Dr Shaik Mohammad Rafee,23AMAMT6010,mohammadrafee@sasi.ac.in,HOD & Professor,AIML,B.Tech
+S24AIML6104,Mr J Jerin Jose,23AMAMT6020,jerinjose@sasi.ac.in,Associate Professor,AIML,B.Tech
+S24AIML6103,Mr G V N Kishore,23AMAMT6030,kishore.g@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S25AIML6101,Ms G Nagavallika,23AMAMP604A,nagavallika.g@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S24AIML6101,Ms S Sajitha Banu,23AMAMP605B,sajithabanu@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S15MEC316,Mr M V S Pavan Kumar,23AMMEO606A,pavanmaganti@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S24AIML6101,Ms S Sajitha Banu,23AMAML6070,sajithabanu@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S25AIML6101,Ms G Nagavallika,23AMAML6070,nagavallika.g@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S24AIML6103,Mr G V N Kishore,23AMAML6080,kishore.g@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S20EEE205,Dr Shaik Mohammad Rafee,23AMAML6080,mohammadrafee@sasi.ac.in,HOD & Professor,AIML,B.Tech
+S08ASH173,Mr Y Punnaiah,23AMAHS6090,punaiah2@sasi.ac.in,Senior Assistant Professor,AIML,B.Tech
+S23AIML6108,Ms P Sheela,23AMAMN6100,sheela.p@sasi.ac.in,Associate Professor,AIML,B.Tech
+S20EEE205,Dr Shaik Mohammad Rafee,23AMAMT4010,mohammadrafee@sasi.ac.in,HOD & Professor,AIML,B.Tech
+S19ASH102,Dr A Sombabu,23AMMAT4020,somuphd@sasi.ac.in,Professor,AIML,B.Tech
+S23AIML6108,Ms P Sheela,23AMAMT4030,sheela.p@sasi.ac.in,Associate Professor,AIML,B.Tech
+S22AIML6101,Mr M Gopinath Reddy,23AMAMT4040,mgopinath@sasi.ac.in,Associate Professor,AIML,B.Tech
+S24AIML6101,Ms S Sajitha Banu,23AMAMT4050,sajithabanu@sasi.ac.in,Assistant Professor,AIML,B.Tech
+S23AIML6108,Ms P Sheela,23AMAML4060,sheela.p@sasi.ac.in,Associate Professor,AIML,B.Tech
+S22AIML6101,Mr M Gopinath Reddy,23AMAML4060,mgopinath@sasi.ac.in,Associate Professor,AIML,B.Tech
+S22AIML6101,Mr M Gopinath Reddy,23AMAML4070,mgopinath@sasi.ac.in,Associate Professor,AIML,B.Tech
+S20EEE205,Dr Shaik Mohammad Rafee,23AMAML4070,mohammadrafee@sasi.ac.in,HOD & Professor,AIML,B.Tech
+S22AIML6101,Mr M Gopinath Reddy,23AMAMS4080,mgopinath@sasi.ac.in,Associate Professor,AIML,B.Tech
+S25AIML6101,Ms G Nagavallika,23CMMSR4090,nagavallika.g@sasi.ac.in,Assistant Professor,AIML,B.Tech
