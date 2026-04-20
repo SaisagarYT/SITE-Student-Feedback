@@ -199,10 +199,11 @@ const SectionReport: React.FC<SectionReportProps> = ({
           <div><b>ReportedDate:</b> {rows && rows.length > 0 ? rows[0].reportedDate || '-' : '-'}</div>
         </div>
 
-        {/* Calculate overall submitted and total students for this section */}
+        {/* Use section-level counts returned by backend; do not sum per-row duplicates */}
         {(() => {
-          const totalSubmitted = rows.reduce((sum, row) => sum + (typeof row.submitted === 'number' ? row.submitted : 0), 0);
-          const totalStudents = rows.reduce((sum, row) => sum + (typeof row.totalStudents === 'number' ? row.totalStudents : 0), 0);
+          const firstRow = rows[0];
+          const totalSubmitted = rows.find((row) => typeof row.submitted === "number")?.submitted ?? 0;
+          const totalStudents = typeof firstRow?.totalStudents === "number" ? firstRow.totalStudents : 0;
           return (
             <div>
               <div><b>Year:</b> {year}</div>
@@ -255,7 +256,6 @@ const SectionReport: React.FC<SectionReportProps> = ({
         <p>Principal</p>
         <p>Plan of Action by Faculty</p>
       </div>
-
       {/* FOOTER */}
       <div style={{marginTop:"60px"}}>
         <div
@@ -267,7 +267,7 @@ const SectionReport: React.FC<SectionReportProps> = ({
         >
           <div>Signature of Faculty</div>
           <div>HOD</div>
-          <div>Dean (Academic's)</div>
+          <div>Dean (Academic&apos;s)</div>
           <div>Principal</div>
         </div>
       </div>

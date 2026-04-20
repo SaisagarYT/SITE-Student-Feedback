@@ -49,3 +49,5 @@ ui-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/src/csv/
+/csv/
