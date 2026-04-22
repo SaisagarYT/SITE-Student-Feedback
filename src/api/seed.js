@@ -1,9 +1,9 @@
 // Map semester values from sheet to desired format
 function mapSemester(sem) {
   const mapping = {
-    "I": "I-I", "II": "I-II", "III": "II-I", "IV": "II-II",
+    "I": "I-I", "II": "II-II", "III": "III-II", "IV": "II-II",
     "V": "III-I", "VI": "III-II", "VII": "IV-I", "VIII": "IV-II",
-    "1": "I-I", "2": "I-II", "3": "II-I", "4": "II-II",
+    "1": "I-I", "2": "II-II", "3": "III-II", "4": "II-II",
     "5": "III-I", "6": "III-II", "7": "IV-I", "8": "IV-II",
     "1-1": "I-I", "1-2": "I-II", "2-1": "II-I", "2-2": "II-II",
     "3-1": "III-I", "3-2": "III-II", "4-1": "IV-I", "4-2": "IV-II"
