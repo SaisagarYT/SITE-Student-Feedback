@@ -51,3 +51,18 @@ ui-debug.log*
 next-env.d.ts
 /src/csv/
 /csv/
+
+# CSV datasets
+*.csv
+**/csv/
+AIML/
+CE/
+CIC/
+csd/
+CSE/
+CSM/
+ECE/
+ECT/
+EEE/
+IT/
+ME/

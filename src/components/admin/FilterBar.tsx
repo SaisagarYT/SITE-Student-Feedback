@@ -31,7 +31,7 @@ type FilterBarProps = {
 };
 
 const PROGRAM_DEPARTMENTS: Record<string, string[]> = {
-  "B.Tech": ["CSE", "IT", "ECE", "EEE", "MECH", "CIVIL", "AIDS", "AIML", "CSM", "CSD", "CIC", "CST"],
+  "B.Tech": ["CSE", "IT", "ECE", "ECT", "EEE", "ME", "CE", "AIDS", "AIML", "CSM", "CSD", "CIC", "CST"],
   "M.Tech": ["AI", "VLSI"],
   "MBA": ["MBA"],
 };
