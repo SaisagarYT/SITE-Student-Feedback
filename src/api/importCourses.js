@@ -38,6 +38,16 @@ const db = getFirestore("student-feedback");
 
 const csvFilePath = path.join(__dirname, "../csv/course.csv");
 
+function getCsvValue(row, keys, fallback = "") {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return value;
+    }
+  }
+  return fallback;
+}
+
 async function importCourses() {
   const courses = [];
   if (!fs.existsSync(csvFilePath)) {
@@ -51,10 +61,10 @@ async function importCourses() {
       console.log(`Read ${courses.length} rows from CSV.`);
       let imported = 0;
       for (const row of courses) {
-        const courseId = row["Course Id"];
-        const facultyId = row["Faculty Id"];
-        let section = row["Section"] && row["Section"].trim() !== "" ? row["Section"] : "A";
-        const semester = mapSemester(row["Semester"]);
+        const courseId = getCsvValue(row, ["Course Id", "Course Code"]);
+        const facultyId = getCsvValue(row, ["Faculty Id"]);
+        const section = getCsvValue(row, ["Section", "Sec", "Year/Section"], "A");
+        const semester = mapSemester(getCsvValue(row, ["Semester"]));
         if (!courseId || !facultyId) continue;
         // Check for existing doc with same courseId, facultyId, section, and semester
         const snap = await db.collection("courses")
@@ -71,11 +81,11 @@ async function importCourses() {
         }
         const docData = {
           courseId,
-          courseName: row["Course Name"],
-          branchId: row["Branch"],
+          courseName: getCsvValue(row, ["Course Name"]),
+          branchId: getCsvValue(row, ["Branch"]),
           facultyId,
           semester,
-          credits: Number(row["Credits"]) || 0,
+          credits: Number(getCsvValue(row, ["Credits"], 0)) || 0,
           section
         };
         await docRef.set(docData, { merge: true });

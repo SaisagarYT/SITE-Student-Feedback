@@ -22,16 +22,34 @@ const db = getFirestore("student-feedback");
 
 const csvPath = path.join(__dirname, "../csv/faculty.csv");
 
+function getCsvValue(row, keys, fallback = "") {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return value;
+    }
+  }
+  return fallback;
+}
+
+function getProgramValue(row) {
+  return getCsvValue(row, [
+    "Program",
+    "Program (B.Tech / M.Tech / MBA / Deploma)",
+    "Program (B.Tech / M.Tech / MBA / Deploma"
+  ], "");
+}
+
 function transformFaculty(row) {
   return {
-    facultyId: row["Faculty Id"],
-    facultyName: row["FacultyName"],
-    email: row["Email"],
-    designation: row["Designation"],
-    branchId: row["Branch"],
-    subjectId: row["Subject Id"],
-    section: row["Section"] && row["Section"].trim() !== "" ? row["Section"] : "A",
-    program: row["Program"] || ""
+    facultyId: getCsvValue(row, ["Faculty Id"]),
+    facultyName: getCsvValue(row, ["FacultyName", "Faculty Name"]),
+    email: getCsvValue(row, ["Email", "Faculty Email"]),
+    designation: getCsvValue(row, ["Designation"]),
+    branchId: getCsvValue(row, ["Branch"]),
+    subjectId: getCsvValue(row, ["Subject Id", "Coure Code", "Course Code"]),
+    section: getCsvValue(row, ["Section", "Sec", "Year/Section"], "A"),
+    program: getProgramValue(row)
   };
 }
 

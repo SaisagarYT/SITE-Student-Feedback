@@ -51,42 +51,60 @@ const collections = [
   { name: "courses", file: "course.csv" }
 ];
 
+function getCsvValue(row, keys, fallback = "") {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return value;
+    }
+  }
+  return fallback;
+}
+
+function getProgramValue(row) {
+  return getCsvValue(row, [
+    "Program",
+    "Program (B.Tech / M.Tech / MBA / Deploma)",
+    "Program (B.Tech / M.Tech / MBA / Deploma"
+  ], "");
+}
+
 // ---------- TRANSFORM ----------
 function transformData(collectionName, row) {
   switch (collectionName) {
     case "students":
       return {
-        studentId: row["Roll Number"],
-        rollNumber: row["Roll Number"],
-        name: row["Name"],
-        email: row["Email"],
-        branchId: row["Branch"],
-        section: row["Section"],
-        semester: mapSemester(row["Semester"]),
-        program: row["Program"] || ""
+        studentId: getCsvValue(row, ["Roll Number", "Uni.Reg.No"]),
+        rollNumber: getCsvValue(row, ["Roll Number", "Uni.Reg.No"]),
+        name: getCsvValue(row, ["Name"]),
+        email: getCsvValue(row, ["Email", "Email ides"]),
+        branchId: getCsvValue(row, ["Branch"]),
+        section: getCsvValue(row, ["Section", "Sec"], "A"),
+        semester: mapSemester(getCsvValue(row, ["Semester"])),
+        program: getProgramValue(row)
       };
 
     case "faculties":
       return {
-        facultyId: row["Faculty Id"],
-        facultyName: row["FacultyName"],
-        email: row["Email"],
-        designation: row["Designation"],
-        branchId: row["Branch"],
-        subjectId: row["Subject Id"],
-        section: row["Section"] && row["Section"].trim() !== "" ? row["Section"] : "A",
-        program: row["Program"] || ""
+        facultyId: getCsvValue(row, ["Faculty Id"]),
+        facultyName: getCsvValue(row, ["FacultyName", "Faculty Name"]),
+        email: getCsvValue(row, ["Email", "Faculty Email"]),
+        designation: getCsvValue(row, ["Designation"]),
+        branchId: getCsvValue(row, ["Branch"]),
+        subjectId: getCsvValue(row, ["Subject Id", "Coure Code", "Course Code"]),
+        section: getCsvValue(row, ["Section", "Sec", "Year/Section"], "A"),
+        program: getProgramValue(row)
       };
 
     case "courses":
       return {
-        courseId: row["Course Id"],
-        courseName: row["Course Name"],
-        branchId: row["Branch"],
-        facultyId: row["Faculty Id"],
-        semester: mapSemester(row["Semester"]),
-        credits: Number(row["Credits"]) || 0,
-        section: row["Section"] && row["Section"].trim() !== "" ? row["Section"] : "A"
+        courseId: getCsvValue(row, ["Course Id", "Course Code"]),
+        courseName: getCsvValue(row, ["Course Name"]),
+        branchId: getCsvValue(row, ["Branch"]),
+        facultyId: getCsvValue(row, ["Faculty Id"]),
+        semester: mapSemester(getCsvValue(row, ["Semester"])),
+        credits: Number(getCsvValue(row, ["Credits"], 0)) || 0,
+        section: getCsvValue(row, ["Section", "Sec", "Year/Section"], "A")
       };
 
     default:
@@ -157,14 +175,14 @@ async function importCollection({ name, file }) {
       const promises = [];
       stream.on("data", (row) => {
         const docData = normalize({
-          facultyId: row["Faculty Id"],
-          facultyName: row["FacultyName"],
-          subjectId: row["Subject Id"],
-          email: row["Email"]?.replace(/,/g, ""),
-          designation: row["Designation"],
-          branchId: row["Branch"],
-          section: row["Section"] || "A",
-          program: row["Program"]
+          facultyId: getCsvValue(row, ["Faculty Id"]),
+          facultyName: getCsvValue(row, ["FacultyName", "Faculty Name"]),
+          subjectId: getCsvValue(row, ["Subject Id", "Coure Code", "Course Code"]),
+          email: getCsvValue(row, ["Email", "Faculty Email"]).replace(/,/g, ""),
+          designation: getCsvValue(row, ["Designation"]),
+          branchId: getCsvValue(row, ["Branch"]),
+          section: getCsvValue(row, ["Section", "Sec", "Year/Section"], "A"),
+          program: getProgramValue(row)
         });
         const p = db.collection("faculties").add(docData);
         promises.push(p);
@@ -181,14 +199,14 @@ async function importCollection({ name, file }) {
       const promises = [];
       stream.on("data", (row) => {
         const docData = normalize({
-          studentId: row["Roll Number"],
-          rollNumber: row["Roll Number"],
-          name: row["Name"],
-          email: row["Email"],
-          branchId: row["Branch"],
-          section: row["Section"],
-          semester: mapSemester(row["Semester"]),
-          program: row["Program"] || ""
+          studentId: getCsvValue(row, ["Roll Number", "Uni.Reg.No"]),
+          rollNumber: getCsvValue(row, ["Roll Number", "Uni.Reg.No"]),
+          name: getCsvValue(row, ["Name"]),
+          email: getCsvValue(row, ["Email", "Email ides"]),
+          branchId: getCsvValue(row, ["Branch"]),
+          section: getCsvValue(row, ["Section", "Sec"], "A"),
+          semester: mapSemester(getCsvValue(row, ["Semester"])),
+          program: getProgramValue(row)
         });
         const p = db.collection("students").add(docData);
         promises.push(p);
@@ -205,13 +223,13 @@ async function importCollection({ name, file }) {
       const promises = [];
       stream.on("data", (row) => {
         const docData = normalize({
-          courseId: row["Course Id"],
-          courseName: row["Course Name"],
-          branchId: row["Branch"],
-          facultyId: row["Faculty Id"],
-          semester: mapSemester(row["Semester"]),
-          credits: Number(row["Credits"]) || 0,
-          section: row["Section"] || "A"
+          courseId: getCsvValue(row, ["Course Id", "Course Code"]),
+          courseName: getCsvValue(row, ["Course Name"]),
+          branchId: getCsvValue(row, ["Branch"]),
+          facultyId: getCsvValue(row, ["Faculty Id"]),
+          semester: mapSemester(getCsvValue(row, ["Semester"])),
+          credits: Number(getCsvValue(row, ["Credits"], 0)) || 0,
+          section: getCsvValue(row, ["Section", "Sec", "Year/Section"], "A")
         });
         const p = db.collection("courses").add(docData);
         promises.push(p);
