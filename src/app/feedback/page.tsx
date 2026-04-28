@@ -4,7 +4,6 @@
 
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import CustomDropdown from "@/components/common/CustomDropdown";
 import { getAuth } from "firebase/auth";
 import { submitStudentFeedback, getStudentFeedbackByCourse, getStudentCourses, getPhase2Active } from "@/api";
 import gsap from "gsap";
@@ -40,10 +39,17 @@ type PhaseProgressState = {
   remark: string;
 };
 
+type ToastKind = "success" | "error" | "info";
+type ToastState = {
+  message: string;
+  kind: ToastKind;
+  visible: boolean;
+  id: number;
+};
+
 export default function HomePage() {
   // All state hooks at the top
   // Faculty is now selected from course.faculties
-  const [facultyLoading] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedFaculty, setSelectedFaculty] = useState<Faculty | null>(null);
@@ -51,21 +57,88 @@ export default function HomePage() {
   const [phase2AlreadySubmitted, setPhase2AlreadySubmitted] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [toast, setToast] = useState<ToastState>({
+    message: "",
+    kind: "info",
+    visible: false,
+    id: 0,
+  });
   const [phaseState, setPhaseState] = useState<Record<"phase1" | "phase2", PhaseProgressState>>({
     phase1: { ratings: {}, remark: "" },
     phase2: { ratings: {}, remark: "" },
   });
   const [phase2Active, setPhase2Active] = useState<boolean>(false);
   const [phase2ActiveLoading, setPhase2ActiveLoading] = useState<boolean>(true);
+  const [submittedPairs, setSubmittedPairs] = useState<Set<string>>(new Set());
+  const scrollToTopTimerRef = useRef<number | null>(null);
+
+  const pairKey = (courseId: string, facultyId: string) => `${courseId}::${facultyId}`;
+  const isCourseFullySubmittedWithPairs = (course: Course, pairs: Set<string>) =>
+    course.faculties.length > 0 &&
+    course.faculties.every((f) => pairs.has(pairKey(course.courseId, f.facultyId)));
+  const isCourseFullySubmitted = (course: Course) =>
+    isCourseFullySubmittedWithPairs(course, submittedPairs);
+  const showToast = (message: string, kind: ToastKind = "info") => {
+    setToast((prev) => ({
+      message,
+      kind,
+      visible: true,
+      id: prev.id + 1,
+    }));
+  };
+  const scrollToTopOnSubmit = () => {
+    // Scroll after toast render with smooth behavior.
+    const scrollingEl = document.scrollingElement as HTMLElement | null;
+    if (scrollingEl && typeof scrollingEl.scrollTo === "function") {
+      scrollingEl.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    pageRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+  const showToastThenScroll = (message: string, kind: ToastKind = "info") => {
+    showToast(message, kind);
+    if (scrollToTopTimerRef.current !== null) {
+      window.clearTimeout(scrollToTopTimerRef.current);
+    }
+    scrollToTopTimerRef.current = window.setTimeout(() => {
+      scrollToTopOnSubmit();
+      scrollToTopTimerRef.current = null;
+    }, 280);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scrollToTopTimerRef.current !== null) {
+        window.clearTimeout(scrollToTopTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!toast.message) return;
+    const hideTimer = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+    }, 2600);
+    const clearTimer = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, message: "" }));
+    }, 3100);
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [toast.id, toast.message]);
 
   // When selectedCourse changes, reset selectedFaculty to first faculty
   useEffect(() => {
     if (selectedCourse?.faculties?.length && selectedCourse.faculties[0]) {
-      setSelectedFaculty(selectedCourse.faculties[0]);
+      const firstAvailableFaculty =
+        selectedCourse.faculties.find((f) => !submittedPairs.has(pairKey(selectedCourse.courseId, f.facultyId))) ||
+        selectedCourse.faculties[0];
+      setSelectedFaculty(firstAvailableFaculty);
     } else {
       setSelectedFaculty(null);
     }
-  }, [selectedCourse]);
+  }, [selectedCourse, submittedPairs]);
 
   // --- Request tracking and debounce for feedback status ---
   const feedbackStatusRequestRef = useRef(0);
@@ -94,6 +167,19 @@ export default function HomePage() {
             phase2?: { ratings?: Record<string, number>; remark?: string } | null;
           };
           const res = resRaw as BackendFeedback | null;
+          const currentPairSubmitted = !!(res?.submitted || res?.phase1 || res?.phase2);
+          if (selectedCourse?.courseId && selectedFaculty?.facultyId) {
+            const key = pairKey(selectedCourse.courseId, selectedFaculty.facultyId);
+            setSubmittedPairs((prev) => {
+              const next = new Set(prev);
+              if (currentPairSubmitted) {
+                next.add(key);
+              } else {
+                next.delete(key);
+              }
+              return next;
+            });
+          }
           setPhase1AlreadySubmitted(!!res?.phase1);
           setPhase2AlreadySubmitted(!!res?.phase2);
           setPhaseState({
@@ -213,6 +299,29 @@ export default function HomePage() {
             faculties,
           };
         });
+
+        // Build submitted map so submitted items stay disabled across selections.
+        const submittedKeys = await Promise.all(
+          normalizedCourses.flatMap((course) =>
+            course.faculties.map(async (faculty) => {
+              try {
+                const status = await getStudentFeedbackByCourse(course.courseId, faculty.facultyId, idToken);
+                const submitted = !!(
+                  status &&
+                  typeof status === "object" &&
+                  ((status as { submitted?: boolean }).submitted ||
+                    (status as { phase1?: unknown }).phase1 ||
+                    (status as { phase2?: unknown }).phase2)
+                );
+                return submitted ? pairKey(course.courseId, faculty.facultyId) : null;
+              } catch {
+                return null;
+              }
+            })
+          )
+        );
+        setSubmittedPairs(new Set(submittedKeys.filter((k): k is string => !!k)));
+
         // Log faculty details for each course
         // normalizedCourses.forEach(course => {
         //   console.log(`Course: ${course.courseName} (${course.courseId}) faculties:`, course.faculties);
@@ -301,7 +410,7 @@ useEffect(() => {
     const user = auth.currentUser;
     if (!user) {
       setIsSubmitting(false);
-      window.alert("You must be signed in to submit feedback.");
+      showToastThenScroll("You must be signed in to submit feedback.", "error");
       return;
     }
     const idToken = await user.getIdToken();
@@ -337,6 +446,26 @@ useEffect(() => {
         );
       }
       const fb: BackendFeedback = isBackendFeedback(feedbackStatus) ? feedbackStatus : {};
+      if (selectedCourse?.courseId && selectedFaculty?.facultyId && (fb.submitted || fb.phase1)) {
+        const key = pairKey(selectedCourse.courseId, selectedFaculty.facultyId);
+        setSubmittedPairs((prev) => {
+          const next = new Set(prev);
+          next.add(key);
+
+          if (isCourseFullySubmittedWithPairs(selectedCourse, next)) {
+            const nextCourse = courses.find(
+              (course) =>
+                course.courseId !== selectedCourse.courseId &&
+                !isCourseFullySubmittedWithPairs(course, next)
+            );
+            if (nextCourse) {
+              setSelectedCourse(nextCourse);
+            }
+          }
+
+          return next;
+        });
+      }
       setPhaseState(prev => ({
         ...prev,
         phase1: fb.phase1 && typeof fb.phase1.ratings === 'object'
@@ -346,13 +475,13 @@ useEffect(() => {
       // Always check backend status after submission and force lock if true
       if (fb.submitted && fb.phase1) {
         setPhase1AlreadySubmitted(true);
-        window.alert("Phase 1 feedback submitted.");
+        showToastThenScroll(`${selectedCourse.courseName} for ${selectedFaculty.facultyName} submitted.`, "success");
       } else {
         setPhase1AlreadySubmitted(false);
       }
     } catch {
       setIsSubmitting(false);
-      window.alert("Failed to submit Phase 1 feedback. Please try again.");
+      showToastThenScroll("Failed to submit Phase 1 feedback. Please try again.", "error");
     }
   };
 
@@ -368,7 +497,7 @@ useEffect(() => {
     const user = auth.currentUser;
     if (!user) {
       setIsSubmitting(false);
-      window.alert("You must be signed in to submit feedback.");
+      showToastThenScroll("You must be signed in to submit feedback.", "error");
       return;
     }
     const idToken = await user.getIdToken();
@@ -404,6 +533,26 @@ useEffect(() => {
         );
       }
       const fb: BackendFeedback = isBackendFeedback(feedbackStatus) ? feedbackStatus : {};
+      if (selectedCourse?.courseId && selectedFaculty?.facultyId && (fb.submitted || fb.phase2)) {
+        const key = pairKey(selectedCourse.courseId, selectedFaculty.facultyId);
+        setSubmittedPairs((prev) => {
+          const next = new Set(prev);
+          next.add(key);
+
+          if (isCourseFullySubmittedWithPairs(selectedCourse, next)) {
+            const nextCourse = courses.find(
+              (course) =>
+                course.courseId !== selectedCourse.courseId &&
+                !isCourseFullySubmittedWithPairs(course, next)
+            );
+            if (nextCourse) {
+              setSelectedCourse(nextCourse);
+            }
+          }
+
+          return next;
+        });
+      }
       setPhaseState(prev => ({
         ...prev,
         phase2: fb.phase2 && typeof fb.phase2.ratings === 'object'
@@ -413,13 +562,13 @@ useEffect(() => {
       // Always check backend status after submission and force lock if true
       if (fb.submitted && fb.phase2) {
         setPhase2AlreadySubmitted(true);
-        window.alert("Phase 2 feedback submitted.");
+        showToastThenScroll(`${selectedCourse.courseName} for ${selectedFaculty.facultyName} submitted.`, "success");
       } else {
         setPhase2AlreadySubmitted(false);
       }
     } catch {
       setIsSubmitting(false);
-      window.alert("Failed to submit Phase 2 feedback. Please try again.");
+      showToastThenScroll("Failed to submit Phase 2 feedback. Please try again.", "error");
     }
   };
   // Helper to remap keys for backend (with reverse scoring)
@@ -473,8 +622,38 @@ useEffect(() => {
   const showPhase1Notice = phase1AlreadySubmitted;
   const showPhase2Notice = phase2AlreadySubmitted;
   const showPhase2InactiveNotice = !phase2Active && activePhase === "phase2";
+  const currentFacultyLabel = selectedFaculty
+    ? `${selectedFaculty.facultyName}${selectedFaculty.designation ? ` (${selectedFaculty.designation})` : ""}`
+    : "";
   return (
     <main className="relative min-h-screen overflow-x-clip bg-(--page) text-(--ink)">
+      {toast.message && (
+        <div
+          className={[
+            "pointer-events-none fixed left-1/2 top-4 z-110 w-[min(92vw,30rem)] -translate-x-1/2 rounded-2xl border px-4 py-3 text-sm font-medium shadow-[0_16px_32px_rgba(8,50,62,0.25)] transition-all duration-300",
+            toast.visible ? "translate-y-0 opacity-100" : "-translate-y-5 opacity-0",
+            toast.kind === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : toast.kind === "error"
+                ? "border-rose-200 bg-rose-50 text-rose-800"
+                : "border-(--brand)/35 bg-white text-(--brand-deep)",
+          ].join(" ")}
+        >
+          <span className="inline-flex items-center gap-2">
+            <Icon
+              icon={
+                toast.kind === "success"
+                  ? "material-symbols:check-circle-rounded"
+                  : toast.kind === "error"
+                    ? "material-symbols:error-rounded"
+                    : "material-symbols:info-rounded"
+              }
+              className="text-lg"
+            />
+            {toast.message}
+          </span>
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-112 bg-[linear-gradient(180deg,rgba(10,152,146,0.16),rgba(10,152,146,0))]" />
         <div className="absolute -left-20 top-48 h-72 w-72 rounded-full bg-[rgba(239,42,113,0.14)] blur-[120px]" />
@@ -505,49 +684,52 @@ useEffect(() => {
                   <label htmlFor="course-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
                     Select course
                   </label>
-                  <div className="relative mb-4">
-                    <CustomDropdown
-                      options={courses.map(course => ({ label: course.courseName, value: course.courseId }))}
-                      value={selectedCourse?.courseId || ""}
-                      onChange={(val: string) => {
-                        const course = courses.find(c => c.courseId === val) || null;
-                        setSelectedCourse(course ? course : null);
-                      }}
-                      placeholder="Select course"
-                      className="mb-2"
-                      disabled={loadingStatus}
-                    />
-                  </div>
-                  {/* Faculty info display */}
-                  <div className="mb-2">
-                    {facultyLoading && <span className="text-base text-white/80">Loading faculty...</span>}
-                    {!facultyLoading && !!selectedCourse?.faculties && selectedCourse.faculties.length > 0 && (
-                      <>
-                        <label className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72 mb-2">
-                          Select faculty
-                        </label>
-                        <CustomDropdown
-                          options={selectedCourse.faculties.map(faculty => ({
-                            label: faculty.facultyName + (faculty.designation ? ` (${faculty.designation})` : ""),
-                            value: faculty.facultyId
-                          }))}
-                          value={selectedFaculty?.facultyId || ""}
-                          onChange={(val: string) => {
-                            const faculty = selectedCourse.faculties.find(f => f.facultyId === val) || null;
-                            setSelectedFaculty(faculty);
+                  <div className="space-y-2 mb-4">
+                    {courses.length === 0 && (
+                      <div className="rounded-2xl border border-white/14 bg-white/10 px-4 py-3 text-sm text-white/75">
+                        No courses available for this student.
+                      </div>
+                    )}
+                    {courses.map((course) => {
+                      const isSelected = selectedCourse?.courseId === course.courseId;
+                      const courseSubmitted = isCourseFullySubmitted(course);
+                      const disabled = loadingStatus || courseSubmitted;
+                      return (
+                        <button
+                          key={course.courseId}
+                          type="button"
+                          onClick={() => {
+                            if (disabled) return;
+                            setSelectedCourse(course);
                           }}
-                          placeholder="Select faculty"
-                          className="mb-2"
-                          disabled={loadingStatus}
-                        />
-                        {selectedFaculty && selectedFaculty.email && (
-                          <div className="text-sm text-white/80 mt-1">Email: <span className="font-medium">{selectedFaculty.email}</span></div>
-                        )}
-                      </>
-                    )}
-                    {!facultyLoading && selectedCourse?.faculties?.length === 0 && (
-                      <span className="block text-base text-white/80">No faculty assigned.</span>
-                    )}
+                          disabled={disabled}
+                          className={[
+                            "w-full rounded-2xl border px-4 py-3 text-left transition",
+                            disabled
+                              ? "border-gray-200 bg-gray-200 text-gray-500 shadow-none cursor-not-allowed"
+                              : isSelected
+                                ? "border-black bg-black text-white shadow-none"
+                                : "border-gray-200 bg-white text-(--ink) hover:border-(--brand)/35 hover:bg-gray-50 cursor-pointer shadow-none",
+                          ].join(" ")}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold">{course.courseName}</div>
+                            </div>
+                            {courseSubmitted && (
+                              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[rgba(10,152,146,0.22)] bg-[rgba(10,152,146,0.12)]">
+                                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-(--brand) text-white">
+                                  <Icon
+                                    icon="material-symbols:check-rounded"
+                                    className="text-[13px] leading-none"
+                                  />
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                   <label htmlFor="phase-select" className="block text-xs font-semibold tracking-[0.2em] uppercase text-white/72">
                     Select phase
@@ -593,6 +775,7 @@ useEffect(() => {
                   phase={activePhaseConfig}
                   ratings={activePhaseState.ratings}
                   remark={activePhaseState.remark}
+                  currentFacultyLabel={currentFacultyLabel}
                   onRatingChange={(questionId, value) => {
                     setPhaseState((prev) => ({
                       ...prev,

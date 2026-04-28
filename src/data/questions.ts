@@ -26,7 +26,7 @@ export const feedbackPhases: FeedbackPhase[] = [
     id: "phase1",
     title: "PHASE 1",
     subtitle: "",
-    helperText: "Early academic pulse check",
+    helperText: "",
     textareaPrompt:
       "Please provide any one suggestion for improving the teaching-learning process.",
     questions: [

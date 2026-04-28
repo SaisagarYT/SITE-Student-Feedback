@@ -10,6 +10,7 @@ type PhaseSectionProps = {
   phase: FeedbackPhase;
   ratings: Record<string, number>;
   remark: string;
+  currentFacultyLabel?: string;
   onRatingChange: (questionId: string, value: number) => void;
   onRemarkChange: (value: string) => void;
   disabled?: boolean;
@@ -19,6 +20,7 @@ const PhaseSection = ({
   phase,
   ratings,
   remark,
+  currentFacultyLabel,
   onRatingChange,
   onRemarkChange,
   disabled = false,
@@ -54,21 +56,26 @@ const PhaseSection = ({
       ref={sectionRef}
       data-reveal
       data-phase={phase.id}
-      className="rounded-[2rem] border border-[rgba(255,255,255,0.16)] bg-[rgba(250,253,252,0.98)] p-4 shadow-[0_28px_75px_rgba(8,80,77,0.22)] sm:p-8"
+      className="rounded-4xl border border-[rgba(255,255,255,0.16)] bg-[rgba(250,253,252,0.98)] p-4 shadow-[0_28px_75px_rgba(8,80,77,0.22)] sm:p-8"
     >
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <p className="text-xs font-semibold tracking-[0.22em] text-[var(--brand-deep)] uppercase">{phase.title}</p>
-          <h2 className="text-lg font-medium text-[var(--ink)] sm:text-2xl">{phase.subtitle}</h2>
-          <p className="text-sm text-[var(--muted)]">{phase.helperText}</p>
+          <p className="text-xs font-semibold tracking-[0.22em] text-(--brand-deep) uppercase">{phase.title}</p>
+          <h2 className="text-lg font-medium text-(--ink) sm:text-2xl">{phase.subtitle}</h2>
+          {currentFacultyLabel && (
+            <p className="inline-flex items-center rounded-full border border-(--line) bg-(--surface-soft) px-3 py-1 text-sm font-medium text-(--ink) sm:text-base">
+              {currentFacultyLabel}
+            </p>
+          )}
+          {phase.helperText && <p className="text-sm text-(--muted)">{phase.helperText}</p>}
         </div>
 
-        <div className="rounded-[1.35rem] border border-[var(--line)] bg-[var(--surface-soft)] px-4 py-3 text-right">
-          <p className="text-[10px] tracking-[0.15em] text-[var(--muted)] uppercase sm:text-xs">Completion</p>
-          <p className="text-sm font-medium text-[var(--ink)] sm:text-base">
+        <div className="rounded-[1.35rem] border border-(--line) bg-(--surface-soft) px-4 py-3 text-right">
+          <p className="text-[10px] tracking-[0.15em] text-(--muted) uppercase sm:text-xs">Completion</p>
+          <p className="text-sm font-medium text-(--ink) sm:text-base">
             {completedCount}/{phase.questions.length}
           </p>
-          <p className="text-[10px] text-[var(--muted)] sm:text-xs">{remark.trim() ? "Remark added" : "Remark pending"}</p>
+          <p className="text-[10px] text-(--muted) sm:text-xs">{remark.trim() ? "Remark added" : "Remark pending"}</p>
         </div>
       </div>
 
@@ -89,8 +96,8 @@ const PhaseSection = ({
         ))}
       </div>
 
-      <div ref={textAreaWrapRef} className="mt-6 rounded-[1.6rem] border border-[var(--line)] bg-[var(--surface-soft)] p-4 sm:mt-8 sm:p-5">
-        <label htmlFor={`${phase.id}_remark`} className="mb-3 block text-sm text-[var(--ink)] sm:text-base">
+      <div ref={textAreaWrapRef} className="mt-6 rounded-[1.6rem] border border-(--line) bg-(--surface-soft) p-4 sm:mt-8 sm:p-5">
+        <label htmlFor={`${phase.id}_remark`} className="mb-3 block text-sm text-(--ink) sm:text-base">
           {phase.textareaPrompt}
         </label>
 
@@ -101,8 +108,8 @@ const PhaseSection = ({
           value={remark}
           onChange={(event) => onRemarkChange(event.target.value)}
           className={clsx(
-            "w-full resize-y rounded-[1.15rem] border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--ink)] outline-none transition duration-300",
-            "placeholder:text-[var(--muted)]/70 focus:border-[var(--brand)] focus:shadow-[0_0_0_3px_rgba(10,152,146,0.12)]",
+            "w-full resize-y rounded-[1.15rem] border border-(--line) bg-white px-4 py-3 text-sm text-(--ink) outline-none transition duration-300",
+            "placeholder:text-(--muted)/70 focus:border-(--brand) focus:shadow-[0_0_0_3px_rgba(10,152,146,0.12)]",
             disabled && "opacity-60 cursor-not-allowed bg-gray-100"
           )}
           onFocus={() => {
