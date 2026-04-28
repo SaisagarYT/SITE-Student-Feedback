@@ -40,5 +40,16 @@ async function getStudentByEmail(email) {
   }
 }
 
-// Pass any email dynamically
-getStudentByEmail("shalemraj.pitta@sasi.ac.in");
+const email = process.argv[2]?.trim();
+
+if (!email) {
+  console.error("Usage: node studentdetails.js <student-email>");
+  process.exit(1);
+}
+
+getStudentByEmail(email)
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("Error:", error);
+    process.exit(1);
+  });
