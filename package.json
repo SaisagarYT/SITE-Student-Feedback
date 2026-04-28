@@ -39,4 +39,8 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^5"
   }
+  ,
+  "engines": {
+    "node": "20.x"
+  }
 }
