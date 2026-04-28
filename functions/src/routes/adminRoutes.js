@@ -1,5 +1,5 @@
 const express = require("express");
-const { getAdminReport, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail, getCourseAnalytics, verifyAdmin, setFeedbackReportDates, getFeedbackReportDates, listFeedbackReportYears } = require("../controllers/adminController");
+const { getAdminReport, loginAdmin, logoutAdmin, getFacultyPerformance, getFacultyDetail, getCourseAnalytics, verifyAdmin, setFeedbackReportDates, getFeedbackReportDates, listFeedbackReportYears, getPhaseActivation, setPhaseActivation } = require("../controllers/adminController");
 
 const adminRouter = express.Router();
 // List all feedbackreport years and their semesters with data
@@ -10,6 +10,11 @@ adminRouter.post("/login", loginAdmin);
 
 // Admin logout endpoint
 adminRouter.post("/logout", logoutAdmin);
+
+// Phase 2 activation endpoints
+// GET is public (students/frontend may read), POST requires admin
+adminRouter.get("/phase-activation", getPhaseActivation);
+adminRouter.post("/phase-activation", verifyAdmin, setPhaseActivation);
 
 // FINAL API: report endpoint only (protected)
 adminRouter.get("/report", verifyAdmin, getAdminReport);

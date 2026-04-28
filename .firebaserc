@@ -5,7 +5,7 @@
   "targets": {
     "hackthon-65658": {
       "hosting": {
-        "feedbackPortal": [
+        "sasi": [
           "sasi-feedback-portal"
         ]
       }

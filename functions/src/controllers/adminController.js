@@ -513,6 +513,41 @@ const setFeedbackReportDates = async (req, res) => {
   }
 };
 
+// Get or read the global Phase 2 activation flag (public)
+const getPhaseActivation = async (req, res) => {
+  try {
+    const docRef = db.collection("settings").doc("phaseActivation");
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return res.json({ phase2Active: false });
+    }
+    const data = doc.data() || {};
+    return res.json({
+      phase2Active: !!data.phase2Active,
+      updatedAt: data.updatedAt ? toIsoDate(data.updatedAt) : undefined,
+    });
+  } catch (error) {
+    console.error("getPhaseActivation error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// Set the global Phase 2 activation flag (admin only)
+const setPhaseActivation = async (req, res) => {
+  try {
+    const { phase2Active } = req.body;
+    if (typeof phase2Active !== "boolean") {
+      return res.status(400).json({ error: "phase2Active must be a boolean" });
+    }
+    const docRef = db.collection("settings").doc("phaseActivation");
+    await docRef.set({ phase2Active, updatedAt: new Date() }, { merge: true });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("setPhaseActivation error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAdminReport,
   logoutAdmin,
@@ -520,5 +555,7 @@ module.exports = {
   loginAdmin,
   setFeedbackReportDates,
   getFeedbackReportDates,
-  listFeedbackReportYears
+  listFeedbackReportYears,
+  getPhaseActivation,
+  setPhaseActivation,
 };

@@ -22,7 +22,7 @@
   ],
   "hosting": [
     {
-      "target": "feedbackPortal",
+      "target": "sasi",
       "public": "out",
       "ignore": [
         "firebase.json",
