@@ -60,12 +60,12 @@ const PhaseSection = ({
       data-phase={phase.id}
       className="rounded-4xl border border-[rgba(255,255,255,0.16)] bg-[rgba(250,253,252,0.98)] p-4 shadow-[0_28px_75px_rgba(8,80,77,0.22)] sm:p-8"
     >
-      <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
+      <div className="relative z-30 mb-7 flex flex-wrap items-start justify-between gap-4">
+        <div className="relative z-30 space-y-2">
           <p className="text-xs font-semibold tracking-[0.22em] text-(--brand-deep) uppercase">{phase.title}</p>
           <h2 className="text-lg font-medium text-(--ink) sm:text-2xl">{phase.subtitle}</h2>
           {currentFacultyLabel && (
-            <p className="inline-flex items-center rounded-full border border-(--line) bg-(--surface-soft) px-3 py-1 text-sm font-medium text-(--ink) sm:text-base">
+            <p className="relative z-30 inline-flex items-center rounded-full border border-(--line) bg-(--surface-soft) px-3 py-1 text-sm font-medium text-(--ink) sm:text-base">
               {currentFacultyLabel}
             </p>
           )}
@@ -105,7 +105,7 @@ const PhaseSection = ({
         ))}
       </div>
 
-      <div ref={textAreaWrapRef} className="mt-6 rounded-[1.6rem] border border-(--line) bg-(--surface-soft) p-4 sm:mt-8 sm:p-5">
+      <div ref={textAreaWrapRef} className="relative z-40 mt-6 rounded-[1.6rem] border border-(--line) bg-(--surface-soft) p-4 sm:mt-8 sm:p-5">
         <label htmlFor={`${phase.id}_remark`} className="mb-3 block text-sm text-(--ink) sm:text-base">
           {phase.textareaPrompt}
         </label>

@@ -784,8 +784,8 @@ export default function HomePage() {
                 </div>
               </div>
             </aside>
-            <div className="space-y-5">
-              <div ref={phaseContainerRef}>
+            <div className="relative z-50 space-y-5">
+              <div ref={phaseContainerRef} className="relative z-50">
                 <PhaseSection
                   phase={activePhaseConfig}
                   ratings={activePhaseState.ratings}
