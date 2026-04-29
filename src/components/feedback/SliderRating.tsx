@@ -3,13 +3,13 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import clsx from "clsx";
-import { useSlider } from "@/hooks/useSlider";
 import { Icon } from "@iconify/react";
 
 type SliderRatingProps = {
   id: string;
   value?: number;
   onChange?: (value: number) => void;
+  onTabForward?: (value: number) => void;
   disabled?: boolean;
 };
 
@@ -22,14 +22,11 @@ const labelEntries = [
 ] as const;
 
 
-const SliderRating = ({ id, value: propValue, onChange, disabled = false }: SliderRatingProps) => {
-  const { value, setValue, activeLabel } = useSlider(propValue ?? null);
+const SliderRating = ({ id, value: propValue, onChange, onTabForward, disabled = false }: SliderRatingProps) => {
+  const value = propValue ?? null;
+  const activeLabel = value === null ? "Not Selected" : (labelEntries.find(e => e.value === value)?.label ?? "Not Selected");
   const controlRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setValue(propValue ?? null);
-  }, [setValue, propValue]);
 
   useLayoutEffect(() => {
     if (!controlRef.current) return;
@@ -47,11 +44,10 @@ const SliderRating = ({ id, value: propValue, onChange, disabled = false }: Slid
         { y: 0, autoAlpha: 1, duration: 0.24, ease: "power2.out"}
       );
     }
-  }, [value]);
+  }, [propValue]);
 
   const handleChange = (nextValue: number) => {
     if (disabled) return;
-    setValue(nextValue);
     onChange?.(nextValue);
   };
 
@@ -68,8 +64,8 @@ const SliderRating = ({ id, value: propValue, onChange, disabled = false }: Slid
             className={clsx(
               "flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 text-[11px] transition duration-300 sm:text-xs",
               value === entry.value
-                ? "border-[var(--brand)] bg-[var(--brand)] text-white shadow-[0_0_0_2px_rgba(10,152,146,0.18),0_16px_32px_rgba(10,152,146,0.12)]"
-                : "border-[var(--line)] bg-[var(--surface-soft)] text-[var(--muted)] hover:border-[var(--brand)] hover:text-[var(--ink)]"
+                ? "border-(--brand) bg-(--brand) text-white shadow-[0_0_0_2px_rgba(10,152,146,0.18),0_16px_32px_rgba(10,152,146,0.12)]"
+                : "border-(--line) bg-(--surface-soft) text-(--muted) hover:border-(--brand) hover:text-(--ink)"
             )}
           >
             <div className="flex items-center gap-2">
@@ -79,6 +75,12 @@ const SliderRating = ({ id, value: propValue, onChange, disabled = false }: Slid
                 name={id}
                 checked={value === entry.value}
                 onChange={() => handleChange(entry.value)}
+                onKeyDown={(event) => {
+                  if (disabled) return;
+                  if (event.key !== "Tab" || event.shiftKey) return;
+                  if (value !== entry.value) return;
+                  onTabForward?.(entry.value);
+                }}
                 className="sr-only"
                 aria-label={entry.label}
                 disabled={disabled}
@@ -90,7 +92,7 @@ const SliderRating = ({ id, value: propValue, onChange, disabled = false }: Slid
               icon={value === entry.value ? "material-symbols:check-circle-outline" : "material-symbols:radio-button-unchecked"}
               className={clsx(
                 "text-base",
-                value === entry.value ? "text-white" : "text-[var(--muted)]",
+                value === entry.value ? "text-white" : "text-(--muted)",
                 disabled && "opacity-50"
               )}
             />

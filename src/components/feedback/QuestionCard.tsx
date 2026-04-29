@@ -13,6 +13,7 @@ type QuestionCardProps = {
   reverseScored?: boolean;
   value?: number;
   onRatingChange?: (value: number) => void;
+  onTabForward?: (value: number) => void;
   disabled?: boolean;
 };
 
@@ -23,6 +24,7 @@ const QuestionCard = ({
   reverseScored,
   value,
   onRatingChange,
+  onTabForward,
   disabled = false,
 }: QuestionCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -64,22 +66,22 @@ const QuestionCard = ({
     <article
       ref={cardRef}
       data-question-card
-      className="question-card rounded-[1.6rem] border border-[var(--line)] bg-white p-5 shadow-[0_14px_34px_rgba(9,93,104,0.08)] sm:p-6"
+      className="question-card rounded-[1.6rem] border border-(--line) bg-white p-5 shadow-[0_14px_34px_rgba(9,93,104,0.08)] sm:p-6"
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold tracking-[0.22em] text-[var(--brand-deep)] uppercase sm:text-xs">
+          <p className="text-[10px] font-semibold tracking-[0.22em] text-(--brand-deep) uppercase sm:text-xs">
             Question {questionNumber}
           </p>
-          <p className="text-sm leading-relaxed text-[var(--ink)] sm:text-base">{questionText}</p>
+          <p className="text-sm leading-relaxed text-(--ink) sm:text-base">{questionText}</p>
         </div>
 
         <span
           className={clsx(
             "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium tracking-wide sm:text-xs",
             reverseScored
-              ? "border-[rgba(239,42,113,0.18)] bg-[rgba(239,42,113,0.08)] text-[var(--accent-deep)]"
-              : "border-[var(--line)] bg-[var(--surface-soft)] text-[var(--brand-deep)]"
+              ? "border-[rgba(239,42,113,0.18)] bg-[rgba(239,42,113,0.08)] text-(--accent-deep)"
+              : "border-(--line) bg-(--surface-soft) text-(--brand-deep)"
           )}
         >
           <Icon icon="material-symbols:keyboard-double-arrow-right" className="text-base" />
@@ -87,7 +89,13 @@ const QuestionCard = ({
         </span>
       </div>
 
-      <SliderRating id={questionId} value={value} onChange={onRatingChange} disabled={disabled} />
+      <SliderRating
+        id={questionId}
+        value={value}
+        onChange={onRatingChange}
+        onTabForward={onTabForward}
+        disabled={disabled}
+      />
     </article>
   );
 };

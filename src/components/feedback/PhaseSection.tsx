@@ -12,6 +12,7 @@ type PhaseSectionProps = {
   remark: string;
   currentFacultyLabel?: string;
   onRatingChange: (questionId: string, value: number) => void;
+  onTabForward?: (questionId: string, value: number, questionIndex: number) => void;
   onRemarkChange: (value: string) => void;
   disabled?: boolean;
 };
@@ -22,6 +23,7 @@ const PhaseSection = ({
   remark,
   currentFacultyLabel,
   onRatingChange,
+  onTabForward,
   onRemarkChange,
   disabled = false,
 }: PhaseSectionProps) => {
@@ -91,6 +93,13 @@ const PhaseSection = ({
             onRatingChange={(nextValue) => {
               onRatingChange(question.id, nextValue);
             }}
+            onTabForward={
+              onTabForward
+                ? (nextValue) => {
+                    onTabForward(question.id, nextValue, index);
+                  }
+                : undefined
+            }
             disabled={disabled}
           />
         ))}

@@ -800,6 +800,26 @@ export default function HomePage() {
                       },
                     }));
                   }}
+                  onTabForward={(questionId, value, questionIndex) => {
+                    setPhaseState((prev) => {
+                      const nextQuestion = activePhaseConfig.questions[questionIndex + 1];
+                      if (!nextQuestion) return prev;
+
+                      const currentRatings = prev[activePhase].ratings;
+                      if (currentRatings[nextQuestion.id] !== undefined) return prev;
+
+                      return {
+                        ...prev,
+                        [activePhase]: {
+                          ...prev[activePhase],
+                          ratings: {
+                            ...currentRatings,
+                            [nextQuestion.id]: value,
+                          },
+                        },
+                      };
+                    });
+                  }}
                   onRemarkChange={(value) => {
                     setPhaseState((prev) => ({
                       ...prev,
@@ -815,7 +835,7 @@ export default function HomePage() {
                   }
                 />
               </div>
-              <div data-reveal className="relative z-[120] flex flex-col gap-3 rounded-[1.75rem] bg-white px-5 py-5 shadow-[0_18px_50px_rgba(9,58,70,0.16)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div data-reveal className="relative z-120 flex flex-col gap-3 rounded-[1.75rem] bg-white px-5 py-5 shadow-[0_18px_50px_rgba(9,58,70,0.16)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
                   <p className="text-xs font-semibold tracking-[0.22em] text-(--muted) uppercase">Navigation</p>
                   <p className="mt-2 text-sm text-(--muted)">
