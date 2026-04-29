@@ -281,6 +281,16 @@ const getAdminReport = async (req, res) => {
       return res.json({ results: [] });
     }
 
+    // If none of the fetched feedback docs belong to the requested phase,
+    // return an empty result set early. This prevents returning Phase-1
+    // aggregates when the admin explicitly asked for Phase-2 and no
+    // Phase-2 documents exist for the filters.
+    const requestedPhaseField = phase === "1" ? "p1" : "p2";
+    const hasRequestedPhase = feedbackSnap.docs.some(doc => doc.data().phase === requestedPhaseField);
+    if (!hasRequestedPhase) {
+      return res.json({ results: [] });
+    }
+
     /* ----------------------------- */
     /* STEP 3: AGGREGATE */
 /* ----------------------------- */

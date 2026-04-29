@@ -218,8 +218,8 @@ export default function AdminDashboard() {
   const fetchReport = async () => {
     try {
       // setLoading(true); // removed unused loading state 
-      // Map phase to backend/DB format
-      const phaseMapped = filters.phase === "2" ? "p2" : "p1";
+      // Map phase to backend query expected value (backend expects "1" or "2")
+      const phaseMapped = filters.phase === "2" ? "2" : "1";
       // Use academicYear from filters if set, else compute current year
       let academicYear = filters.academicYear;
       if (!academicYear) {
