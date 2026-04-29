@@ -14,6 +14,13 @@
   --accent-deep: #cb1c5f;
   --accent-soft: #f5a3c0;
   --highlight: #ffd166;
+  --admin-page: linear-gradient(180deg, #eaf5f3 0%, #f7fbfa 100%);
+  --admin-surface: rgba(255, 255, 255, 0.9);
+  --admin-surface-strong: #ffffff;
+  --admin-border: rgba(10, 152, 146, 0.14);
+  --admin-border-strong: rgba(10, 152, 146, 0.22);
+  --admin-shadow: 0 18px 48px rgba(9, 58, 70, 0.12);
+  --admin-shadow-strong: 0 22px 65px rgba(9, 58, 70, 0.16);
 }
 
 * {
@@ -40,6 +47,84 @@ h1,
 h2,
 h3 {
   font-family: var(--font-display), "Segoe UI", sans-serif;
+}
+
+.admin-dashboard-shell {
+  background: var(--admin-page);
+}
+
+.admin-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 1.5rem;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.admin-card-strong {
+  background: var(--admin-surface-strong);
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 1.5rem;
+  box-shadow: none;
+}
+
+.admin-pill {
+  border: 1px solid var(--admin-border-strong);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.admin-pill-active {
+  background: linear-gradient(135deg, rgba(10, 152, 146, 0.16), rgba(239, 42, 113, 0.12));
+  border-color: rgba(10, 152, 146, 0.28);
+  color: var(--brand-deep);
+}
+
+.admin-input,
+.admin-select {
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  border-radius: 0.95rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.admin-input:focus,
+.admin-select:focus {
+  outline: none;
+  border-color: rgba(10, 152, 146, 0.5);
+  box-shadow: 0 0 0 4px rgba(10, 152, 146, 0.12);
+}
+
+.admin-input:disabled,
+.admin-select:disabled {
+  background: rgba(236, 244, 243, 0.75);
+  color: rgba(98, 112, 134, 0.75);
+}
+
+.admin-table-shell {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--admin-border);
+  border-radius: 1.35rem;
+  box-shadow: none;
+}
+
+.admin-table-head {
+  background: linear-gradient(135deg, rgba(10, 152, 146, 0.12), rgba(239, 42, 113, 0.08));
+  color: var(--ink);
+}
+
+.admin-table-section-label {
+  background: linear-gradient(135deg, rgba(10, 152, 146, 0.12), rgba(239, 42, 113, 0.08));
+  color: var(--ink);
+}
+
+.admin-soft-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(239, 247, 245, 0.82));
+  border: 1px solid rgba(10, 152, 146, 0.12);
+  box-shadow: none;
 }
 
 button,

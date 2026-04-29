@@ -1,3 +1,4 @@
+import Image from "next/image";
 import React from "react";
 
 interface SectionReportRow {
@@ -20,6 +21,7 @@ interface SectionReportProps {
   year: string;
   semester: string;
   section: string;
+  submitted?: number;
   setSection: (section: string) => void;
   rows: SectionReportRow[];
 }
@@ -32,6 +34,7 @@ const SectionReport: React.FC<SectionReportProps> = ({
   year,
   semester,
   section,
+  submitted,
   setSection,
   rows,
 }) => {
@@ -55,20 +58,21 @@ const SectionReport: React.FC<SectionReportProps> = ({
     <div
       className="section-report-print"
       style={{
-        fontFamily: "serif",
-        color: "#222",
-        padding: 24,     // BIG for screen
-        background: "#fff",
+        fontFamily: "var(--font-body), serif",
+        color: "var(--ink)",
+        padding: 24,
+        background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(239,247,245,0.92))",
         width: "100%",
-        fontSize: 16     // BIG for screen
+        fontSize: 16
       }}
     >
       <style>{`
         /* ================= SCREEN ================= */
         @media screen {
-          .section-report-print {
-            max-height: 80vh;
-            overflow-y: auto;
+          .report-print-only,
+          .report-observed-by,
+          .report-signatures {
+            display: none !important;
           }
         }
 
@@ -99,10 +103,39 @@ const SectionReport: React.FC<SectionReportProps> = ({
             left: 0;
             width: 100%;
             margin: 0;
+            background: transparent !important;
+            padding: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
 
             /* shrink ONLY for print */
             font-size: 12px;
-            padding: 10px;
+          }
+
+          .section-report-print .body-text {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: flex-start !important;
+            gap: 18px !important;
+            padding: 0 !important;
+            margin-top: 6mm !important;
+            margin-bottom: 10px !important;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+
+          .section-report-print .report-observed-by {
+            display: block !important;
+          }
+
+          .section-report-print .report-signatures {
+            display: flex !important;
+          }
+
+          .section-report-print .report-print-only {
+            display: block !important;
           }
 
           img {
@@ -143,11 +176,11 @@ const SectionReport: React.FC<SectionReportProps> = ({
 
       {/* SECTION FILTER */}
       <div style={{ textAlign: "right", marginBottom: 12 }} className="print:hidden">
-        <label style={{ marginRight: 8, fontWeight: 600 }}>Section:</label>
+        <label style={{ marginRight: 8, fontWeight: 700, color: "var(--brand-deep)" }}>Section:</label>
         <select
           value={section}
           onChange={e => setSection(e.target.value)}
-          style={{ border: "1px solid #ccc", padding: "4px 8px", borderRadius: 4 }}
+          style={{ border: "1px solid rgba(10,152,146,0.22)", padding: "8px 12px", borderRadius: 12, background: "rgba(255,255,255,0.92)", color: "var(--ink)" }}
         >
           <option value="">All</option>
           <option value="A">A</option>
@@ -159,13 +192,17 @@ const SectionReport: React.FC<SectionReportProps> = ({
 
       {/* HEADER */}
       <div style={{ marginBottom: 8 }}>
-        <img
+        <Image
           src="/sasi_logo_main.png"
           alt="SASI Logo"
+          width={1200}
+          height={320}
+          priority
+          className="report-print-only"
           style={{
             width: "100%",
             maxWidth: "170mm",
-            maxHeight: "35mm", // big for screen
+            maxHeight: "35mm",
             objectFit: "contain",
             display: "block",
             margin: "0 auto",
@@ -176,8 +213,8 @@ const SectionReport: React.FC<SectionReportProps> = ({
           Academic Year {academicYear} 
         </div>
 
-        <div className="header-title" style={{ textAlign: "center", fontWeight: 600 }}>
-          Student Feedback Analysis
+        <div className="header-title" style={{ textAlign: "center", fontWeight: 700, color: "var(--brand-deep)", marginBottom: 12 }}>
+          Student Feedback Individual Analysis on Teaching & Learning
         </div>
       </div>
 
@@ -187,9 +224,16 @@ const SectionReport: React.FC<SectionReportProps> = ({
         style={{
           display: "flex",
           justifyContent: "space-between",
+          marginTop: 12,
           marginBottom: 12,
+          gap: 16,
+          padding: 16,
+          borderRadius: 18,
+          background: "rgba(255,255,255,0.82)",
+          border: "1px solid rgba(10,152,146,0.12)",
+          boxShadow: "0 12px 30px rgba(9,58,70,0.08)",
         }}
-      >
+        >
         <div>
           <div><b>Program:</b> {program}</div>
           <div><b>Department:</b> {department}</div>
@@ -202,7 +246,13 @@ const SectionReport: React.FC<SectionReportProps> = ({
         {/* Use section-level counts returned by backend; do not sum per-row duplicates */}
         {(() => {
           const firstRow = rows[0];
-          const totalSubmitted = rows.find((row) => typeof row.submitted === "number")?.submitted ?? 0;
+          const totalSubmitted = typeof submitted === "number"
+            ? submitted
+            : rows.reduce((highest, row) => {
+                return typeof row.submitted === "number" && row.submitted > highest
+                  ? row.submitted
+                  : highest;
+              }, 0);
           const totalStudents = typeof firstRow?.totalStudents === "number" ? firstRow.totalStudents : 0;
           return (
             <div>
@@ -218,7 +268,7 @@ const SectionReport: React.FC<SectionReportProps> = ({
 
       {/* TABLE */}
       <div>
-        <div style={{ fontWeight: 600, margin: "16px 0 8px" }}>
+        <div style={{ fontWeight: 700, margin: "16px 0 8px", color: "var(--brand-deep)" }}>
           Sectionwise Analysis
         </div>
 
@@ -251,15 +301,17 @@ const SectionReport: React.FC<SectionReportProps> = ({
 
      <div>
         <br /><br />
-        <p style={{fontSize:"17px", marginBottom:"7px"}}><b>Observed By</b></p>
-        <p>HOD</p>
-        <p>Principal</p>
-        <p>Plan of Action by Faculty</p>
+        <div className="report-observed-by">
+          <p style={{fontSize:"17px", marginBottom:"7px"}}><b>Observed By</b></p>
+          <p>HOD</p>
+          <p>Principal</p>
+          <p>Plan of Action by Faculty</p>
+        </div>
       </div>
       {/* FOOTER */}
       <div style={{marginTop:"60px"}}>
         <div
-          className="signatures"
+          className="signatures report-signatures"
           style={{
             display: "flex",
             justifyContent: "space-between"   // big on screen
@@ -276,13 +328,14 @@ const SectionReport: React.FC<SectionReportProps> = ({
 };
 
 const th = {
-  border: "1px solid #222",
-  padding: 6,
+  border: "1px solid rgba(10,152,146,0.22)",
+  padding: 8,
+  background: "rgba(10,152,146,0.08)",
 };
 
 const td = {
-  border: "1px solid #222",
-  padding: 6,
+  border: "1px solid rgba(10,152,146,0.16)",
+  padding: 8,
 };
 
 const tdCenter = {

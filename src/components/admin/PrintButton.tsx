@@ -5,7 +5,7 @@ export default function PrintButton() {
     <div className="mt-3 flex justify-end">
       <button
         onClick={() => window.print()}
-        className="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition"
+        className="rounded-full bg-[linear-gradient(135deg,var(--brand),var(--brand-deep))] px-5 py-2.5 text-sm font-semibold text-white shadow-none transition hover:-translate-y-0.5"
       >
         Print Report
       </button>

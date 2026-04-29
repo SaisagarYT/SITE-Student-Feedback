@@ -69,15 +69,21 @@ export default function HomePage() {
   });
   const [phase2Active, setPhase2Active] = useState<boolean>(false);
   const [phase2ActiveLoading, setPhase2ActiveLoading] = useState<boolean>(true);
-  const [submittedPairs, setSubmittedPairs] = useState<Set<string>>(new Set());
+  const [submittedPairsByPhase, setSubmittedPairsByPhase] = useState<Record<"phase1" | "phase2", Set<string>>>({
+    phase1: new Set(),
+    phase2: new Set(),
+  });
+  const [activePhase, setActivePhase] = useState<"phase1" | "phase2">("phase1");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollToTopTimerRef = useRef<number | null>(null);
 
   const pairKey = (courseId: string, facultyId: string) => `${courseId}::${facultyId}`;
   const isCourseFullySubmittedWithPairs = (course: Course, pairs: Set<string>) =>
     course.faculties.length > 0 &&
     course.faculties.every((f) => pairs.has(pairKey(course.courseId, f.facultyId)));
+  const getSubmittedPairsForActivePhase = () => submittedPairsByPhase[activePhase];
   const isCourseFullySubmitted = (course: Course) =>
-    isCourseFullySubmittedWithPairs(course, submittedPairs);
+    isCourseFullySubmittedWithPairs(course, getSubmittedPairsForActivePhase());
   const showToast = (message: string, kind: ToastKind = "info") => {
     setToast((prev) => ({
       message,
@@ -130,15 +136,16 @@ export default function HomePage() {
 
   // When selectedCourse changes, reset selectedFaculty to first faculty
   useEffect(() => {
+    const activeSubmittedPairs = submittedPairsByPhase[activePhase];
     if (selectedCourse?.faculties?.length && selectedCourse.faculties[0]) {
       const firstAvailableFaculty =
-        selectedCourse.faculties.find((f) => !submittedPairs.has(pairKey(selectedCourse.courseId, f.facultyId))) ||
+        selectedCourse.faculties.find((f) => !activeSubmittedPairs.has(pairKey(selectedCourse.courseId, f.facultyId))) ||
         selectedCourse.faculties[0];
       setSelectedFaculty(firstAvailableFaculty);
     } else {
       setSelectedFaculty(null);
     }
-  }, [selectedCourse, submittedPairs]);
+  }, [selectedCourse, activePhase, submittedPairsByPhase]);
 
   // --- Request tracking and debounce for feedback status ---
   const feedbackStatusRequestRef = useRef(0);
@@ -167,15 +174,22 @@ export default function HomePage() {
             phase2?: { ratings?: Record<string, number>; remark?: string } | null;
           };
           const res = resRaw as BackendFeedback | null;
-          const currentPairSubmitted = !!(res?.submitted || res?.phase1 || res?.phase2);
           if (selectedCourse?.courseId && selectedFaculty?.facultyId) {
             const key = pairKey(selectedCourse.courseId, selectedFaculty.facultyId);
-            setSubmittedPairs((prev) => {
-              const next = new Set(prev);
-              if (currentPairSubmitted) {
-                next.add(key);
+            setSubmittedPairsByPhase((prev) => {
+              const next = {
+                phase1: new Set(prev.phase1),
+                phase2: new Set(prev.phase2),
+              };
+              if (res?.phase1) {
+                next.phase1.add(key);
               } else {
-                next.delete(key);
+                next.phase1.delete(key);
+              }
+              if (res?.phase2) {
+                next.phase2.add(key);
+              } else {
+                next.phase2.delete(key);
               }
               return next;
             });
@@ -301,7 +315,7 @@ export default function HomePage() {
         });
 
         // Build submitted map so submitted items stay disabled across selections.
-        const submittedKeys = await Promise.all(
+        const submittedPhase1Keys = await Promise.all(
           normalizedCourses.flatMap((course) =>
             course.faculties.map(async (faculty) => {
               try {
@@ -309,9 +323,7 @@ export default function HomePage() {
                 const submitted = !!(
                   status &&
                   typeof status === "object" &&
-                  ((status as { submitted?: boolean }).submitted ||
-                    (status as { phase1?: unknown }).phase1 ||
-                    (status as { phase2?: unknown }).phase2)
+                  (status as { phase1?: unknown }).phase1
                 );
                 return submitted ? pairKey(course.courseId, faculty.facultyId) : null;
               } catch {
@@ -320,7 +332,27 @@ export default function HomePage() {
             })
           )
         );
-        setSubmittedPairs(new Set(submittedKeys.filter((k): k is string => !!k)));
+        const submittedPhase2Keys = await Promise.all(
+          normalizedCourses.flatMap((course) =>
+            course.faculties.map(async (faculty) => {
+              try {
+                const status = await getStudentFeedbackByCourse(course.courseId, faculty.facultyId, idToken);
+                const submitted = !!(
+                  status &&
+                  typeof status === "object" &&
+                  (status as { phase2?: unknown }).phase2
+                );
+                return submitted ? pairKey(course.courseId, faculty.facultyId) : null;
+              } catch {
+                return null;
+              }
+            })
+          )
+        );
+        setSubmittedPairsByPhase({
+          phase1: new Set(submittedPhase1Keys.filter((k): k is string => !!k)),
+          phase2: new Set(submittedPhase2Keys.filter((k): k is string => !!k)),
+        });
 
         // Log faculty details for each course
         // normalizedCourses.forEach(course => {
@@ -343,18 +375,15 @@ export default function HomePage() {
   // Update feedback fetching to depend on selectedCourseId
   // Removed duplicate feedback fetching useEffect with onAuthStateChanged
 // Reset state when faculty changes
-useEffect(() => {
-  setPhase1AlreadySubmitted(false);
-  setPhase2AlreadySubmitted(false);
-  setPhaseState({
-    phase1: { ratings: {}, remark: "" },
-    phase2: { ratings: {}, remark: "" },
-  });
-}, [selectedFaculty]);
+  useEffect(() => {
+    setPhase1AlreadySubmitted(false);
+    setPhase2AlreadySubmitted(false);
+    setPhaseState({
+      phase1: { ratings: {}, remark: "" },
+      phase2: { ratings: {}, remark: "" },
+    });
+  }, [selectedFaculty]);
 
-
-  const [activePhase, setActivePhase] = useState<"phase1" | "phase2">("phase1");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Move all variable and hook declarations above the return statement ---
   const phase1 = feedbackPhases.find((phase) => phase.id === "phase1") ?? feedbackPhases[0];
@@ -448,15 +477,18 @@ useEffect(() => {
       const fb: BackendFeedback = isBackendFeedback(feedbackStatus) ? feedbackStatus : {};
       if (selectedCourse?.courseId && selectedFaculty?.facultyId && (fb.submitted || fb.phase1)) {
         const key = pairKey(selectedCourse.courseId, selectedFaculty.facultyId);
-        setSubmittedPairs((prev) => {
-          const next = new Set(prev);
-          next.add(key);
+        setSubmittedPairsByPhase((prev) => {
+          const next = {
+            phase1: new Set(prev.phase1),
+            phase2: new Set(prev.phase2),
+          };
+          next.phase1.add(key);
 
-          if (isCourseFullySubmittedWithPairs(selectedCourse, next)) {
+          if (isCourseFullySubmittedWithPairs(selectedCourse, next.phase1)) {
             const nextCourse = courses.find(
               (course) =>
                 course.courseId !== selectedCourse.courseId &&
-                !isCourseFullySubmittedWithPairs(course, next)
+                !isCourseFullySubmittedWithPairs(course, next.phase1)
             );
             if (nextCourse) {
               setSelectedCourse(nextCourse);
@@ -535,15 +567,18 @@ useEffect(() => {
       const fb: BackendFeedback = isBackendFeedback(feedbackStatus) ? feedbackStatus : {};
       if (selectedCourse?.courseId && selectedFaculty?.facultyId && (fb.submitted || fb.phase2)) {
         const key = pairKey(selectedCourse.courseId, selectedFaculty.facultyId);
-        setSubmittedPairs((prev) => {
-          const next = new Set(prev);
-          next.add(key);
+        setSubmittedPairsByPhase((prev) => {
+          const next = {
+            phase1: new Set(prev.phase1),
+            phase2: new Set(prev.phase2),
+          };
+          next.phase2.add(key);
 
-          if (isCourseFullySubmittedWithPairs(selectedCourse, next)) {
+          if (isCourseFullySubmittedWithPairs(selectedCourse, next.phase2)) {
             const nextCourse = courses.find(
               (course) =>
                 course.courseId !== selectedCourse.courseId &&
-                !isCourseFullySubmittedWithPairs(course, next)
+                !isCourseFullySubmittedWithPairs(course, next.phase2)
             );
             if (nextCourse) {
               setSelectedCourse(nextCourse);
@@ -617,11 +652,6 @@ useEffect(() => {
   if (!isAuthed) {
     return null;
   }
-  // Add a notice for phase completion (move inside HomePage before return)
-  // Always show notice and disable if backend says submitted, regardless of local state
-  const showPhase1Notice = phase1AlreadySubmitted;
-  const showPhase2Notice = phase2AlreadySubmitted;
-  const showPhase2InactiveNotice = !phase2Active && activePhase === "phase2";
   const currentFacultyLabel = selectedFaculty
     ? `${selectedFaculty.facultyName}${selectedFaculty.designation ? ` (${selectedFaculty.designation})` : ""}`
     : "";
@@ -661,21 +691,6 @@ useEffect(() => {
       </div>
       <div ref={pageRef} className="relative pb-14">
         <FeedbackHeader activePhase={activePhase} />
-        {showPhase1Notice && (
-          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-(--brand) bg-[rgba(10,152,146,0.08)] px-4 py-3 text-(--brand-deep) text-center text-sm font-medium shadow">
-            Phase 1 feedback has already been submitted. You cannot edit your responses.
-          </div>
-        )}
-        {showPhase2Notice && (
-          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-(--brand) bg-[rgba(10,152,146,0.08)] px-4 py-3 text-(--brand-deep) text-center text-sm font-medium shadow">
-            Phase 2 feedback has already been submitted. You cannot edit your responses.
-          </div>
-        )}
-        {showPhase2InactiveNotice && (
-          <div className="mx-auto my-4 max-w-2xl rounded-xl border border-yellow-400 bg-yellow-50 px-4 py-3 text-yellow-900 text-center text-sm font-medium shadow">
-            Phase 2 is currently disabled by the administrator. You may only submit Phase 1 feedback at this time.
-          </div>
-        )}
         <section className="bg-[linear-gradient(180deg,var(--brand)_0%,var(--brand-deep)_100%)] py-10 sm:py-14">
           <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:px-8">
             <aside data-reveal className="sticky top-4 self-start lg:top-5">
@@ -800,7 +815,7 @@ useEffect(() => {
                   }
                 />
               </div>
-              <div data-reveal className="flex flex-col gap-3 rounded-[1.75rem] bg-white px-5 py-5 shadow-[0_18px_50px_rgba(9,58,70,0.16)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div data-reveal className="relative z-[120] flex flex-col gap-3 rounded-[1.75rem] bg-white px-5 py-5 shadow-[0_18px_50px_rgba(9,58,70,0.16)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
                   <p className="text-xs font-semibold tracking-[0.22em] text-(--muted) uppercase">Navigation</p>
                   <p className="mt-2 text-sm text-(--muted)">

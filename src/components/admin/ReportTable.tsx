@@ -81,26 +81,26 @@ export default function ReportTable({ data, loading, showPerQuestion }: ReportTa
   );
 
   return (
-    <div className="flex-1 overflow-auto bg-white rounded shadow">
+    <div className="admin-table-shell flex-1 overflow-auto">
       {loading ? (
-        <div className="p-4 text-center text-gray-500">Loading...</div>
+        <div className="p-4 text-center text-(--muted)">Loading...</div>
       ) : (
         <>
           {/* Theory Section */}
           <div>
-            <div className="font-bold text-lg p-2 bg-gray-100">Theory Subjects</div>
+            <div className="admin-table-section-label px-4 py-3 text-lg font-semibold">Theory Subjects</div>
             <table className="w-full text-sm mb-8">
-              <thead className="bg-gray-200 sticky top-0 z-10">
+              <thead className="admin-table-head sticky top-0 z-10">
                 <tr>
-                  <th className="p-2">S.No</th>
-                  <th className="p-2">Faculty</th>
-                  <th className="p-2">Course</th>
+                  <th className="p-3 text-left">S.No</th>
+                  <th className="p-3 text-left">Faculty</th>
+                  <th className="p-3 text-left">Course</th>
                   {showPerQuestion && questionKeys.map(qk => (
-                    <th key={qk} className="p-2">{qk.toUpperCase()}</th>
+                    <th key={qk} className="p-3">{qk.toUpperCase()}</th>
                   ))}
-                  <th className="p-2">Avg</th>
-                  <th className="p-2">%</th>
-                  <th className="p-2">Category</th>
+                  <th className="p-3">Avg</th>
+                  <th className="p-3">%</th>
+                  <th className="p-3">Category</th>
                 </tr>
               </thead>
               {renderTableBody(theoryRows, 0)}
@@ -108,19 +108,19 @@ export default function ReportTable({ data, loading, showPerQuestion }: ReportTa
           </div>
           {/* Lab Section */}
           <div>
-            <div className="font-bold text-lg p-2 bg-gray-100">Lab Subjects</div>
+            <div className="admin-table-section-label px-4 py-3 text-lg font-semibold">Lab Subjects</div>
             <table className="w-full text-sm">
-              <thead className="bg-gray-200 sticky top-0 z-10">
+              <thead className="admin-table-head sticky top-0 z-10">
                 <tr>
-                  <th className="p-2">S.No</th>
-                  <th className="p-2">Faculty</th>
-                  <th className="p-2">Course</th>
+                  <th className="p-3 text-left">S.No</th>
+                  <th className="p-3 text-left">Faculty</th>
+                  <th className="p-3 text-left">Course</th>
                   {showPerQuestion && questionKeys.map(qk => (
-                    <th key={qk} className="p-2">{qk.toUpperCase()}</th>
+                    <th key={qk} className="p-3">{qk.toUpperCase()}</th>
                   ))}
-                  <th className="p-2">Avg</th>
-                  <th className="p-2">%</th>
-                  <th className="p-2">Category</th>
+                  <th className="p-3">Avg</th>
+                  <th className="p-3">%</th>
+                  <th className="p-3">Category</th>
                 </tr>
               </thead>
               {renderTableBody(labRows, theoryRows.length)}

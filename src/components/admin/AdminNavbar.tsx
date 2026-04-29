@@ -7,13 +7,13 @@ import { app } from "@/firebase";
 function ProfileCard({ user, profileImage }: { user: User | null; profileImage: string | null }) {
   if (!user) return null;
   return (
-    <div className="flex items-center gap-2 px-3 py-1 ml-2 rounded-2xl bg-(--surface-soft) border border-(--line) text-xs text-(--ink) shadow-sm min-w-40">
+    <div className="flex items-center gap-2 px-3 py-1 ml-2 rounded-2xl bg-(--surface-soft) border border-(--line) text-xs text-(--ink) min-w-40">
       <Image
         src={profileImage || "/profile-avatar.svg"}
         alt="Profile"
         width={36}
         height={36}
-        className="h-9 w-9 rounded-full object-cover ring-2 ring-(--line)"
+        className="h-9 w-9 rounded-full object-cover ring-1 ring-(--line)"
         priority
       />
       {/* Hide name and email in print view */}
@@ -47,8 +47,8 @@ const AdminNavbar = () => {
 
   return (
     <header data-reveal>
-      <div className="border-b border-(--line) bg-(--surface) text-(--ink)">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-0 sm:px-6 lg:px-8">
+      <div className="border-b border-[rgba(10,152,146,0.14)] bg-[rgba(255,255,255,0.86)] text-(--ink)">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           {/* Logo always visible */}
           <div className="flex items-center gap-3">
             <Image
@@ -61,7 +61,7 @@ const AdminNavbar = () => {
               priority
             />
             {/* Hide admin panel in print view */}
-            <div className="hidden items-center gap-2 rounded-full border border-(--line) bg-(--surface-soft) px-3 py-2 text-sm text-(--muted) sm:inline-flex print:hidden">
+            <div className="hidden items-center gap-2 rounded-full border border-[rgba(10,152,146,0.18)] bg-[rgba(10,152,146,0.08)] px-3 py-2 text-sm text-(--brand-deep) sm:inline-flex print:hidden">
               <Icon icon="material-symbols:admin-panel-settings-outline" className="text-lg text-(--brand)" />
               Admin Panel
             </div>
@@ -88,7 +88,7 @@ const AdminNavbar = () => {
                 window.location.href = "/admin/login";
               }}
               className="ml-2 rounded-full border border-red-500 bg-red-500 px-4 py-2 text-xs font-semibold text-white uppercase transition hover:bg-red-600 hover:border-red-600 sm:text-sm cursor-pointer"
-              style={{ marginLeft: '8px' }}
+              style={{ marginLeft: '8px', boxShadow: 'none' }}
             >
               Logout
             </button>

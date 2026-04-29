@@ -1,3 +1,4 @@
+import Image from "next/image";
 import React from "react";
 
 interface FacultyReportRow {
@@ -49,6 +50,13 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
       style={{ fontFamily: 'serif', color: '#222', padding: '8mm', background: '#fff', width: '100%' }}
     >
       <style>{`
+        @media screen {
+          .report-print-only,
+          .report-signatures {
+            display: none !important;
+          }
+        }
+
         @media print {
           @page {
             size: A4;
@@ -77,13 +85,25 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
           .signatures {
             margin-top: 20mm;
           }
+          .report-signatures {
+            display: flex !important;
+          }
+          .report-print-only {
+            display: block !important;
+          }
+          .faculty-report-print .body-text {
+            margin-top: 6mm !important;
+          }
         }
       `}</style>
       {/* HEADER */}
       <div className="no-break" style={{ width: '100%', marginBottom: 6 }}>
-        <img
+        <Image
           src="/sasi_logo_main.png"
           alt="SASI Logo"
+          className="report-print-only"
+          width={1200}
+          height={320}
           style={{
             maxWidth: '170mm',
             maxHeight: '40mm',
@@ -96,8 +116,8 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
         <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 18, marginTop: 4 }}>
           Academic Tear {academicYear}
         </div>
-        <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 20, margin: '4px 0' }}>
-          Student Feedback Analysis
+        <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 20, margin: '4px 0', marginBottom: 12 }}>
+          Student Feedback Individual Analysis on Teaching & Learning
         </div>
       </div>
       {/* BODY */}
@@ -129,7 +149,7 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
           </thead>
           <tbody>
             {Array.isArray(rows) && rows.length > 0 ? (
-              rows.map((row, idx) => (
+              rows.map((row) => (
                 <tr key={row.sNo + '-' + row.facultyName + '-' + row.course + '-' + row.section}>
                   <td style={{ border: '1px solid #222', padding: 4, textAlign: 'center' }}>{row.sNo}</td>
                   <td style={{ border: '1px solid #222', padding: 4 }}>{row.facultyName}</td>
@@ -150,11 +170,11 @@ const FacultyReport: React.FC<FacultyReportProps> = ({
       </div>
       
       {/* FOOTER */}
-      <div className="no-break signatures" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
-      <p><b>Plan of Action By</b></p>
+      <div className="no-break signatures report-signatures" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
+        <p><b>Plan of Action By</b></p>
         <div>Signature of Faculty</div>
         <div>HOD</div>
-        <div>Dean (Academic's) signature</div>
+        <div>Dean (Academic&apos;s) signature</div>
         <div>Principal signature</div>
       </div>
     </div>

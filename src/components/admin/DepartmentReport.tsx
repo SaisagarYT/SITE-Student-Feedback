@@ -65,20 +65,21 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
     <div
       className="department-report-print"
       style={{
-        fontFamily: "serif",
-        color: "#222",
-        padding: 24,        // BIG for screen
-        background: "#fff",
+        fontFamily: "var(--font-body), serif",
+        color: "var(--ink)",
+        padding: 24,
+        background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(239,247,245,0.92))",
         width: "100%",
-        fontSize: 16        // BIG for screen
+        fontSize: 16
       }}
     >
       <style>{`
         /* ================= SCREEN ================= */
         @media screen {
-          .department-report-print {
-            max-height: 80vh;
-            overflow-y: auto;
+          .report-print-only,
+          .report-observed-by,
+          .report-signatures {
+            display: none !important;
           }
         }
 
@@ -109,10 +110,39 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
             left: 0;
             width: 100%;
             margin: 0;
+            background: transparent !important;
+            padding: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
 
             /* 🔥 SHRINK ONLY FOR PRINT */
             font-size: 12px;
-            padding: 10px;
+          }
+
+          .department-report-print .body-text {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: flex-start !important;
+            gap: 18px !important;
+            padding: 0 !important;
+            margin-top: 6mm !important;
+            margin-bottom: 10px !important;
+            border: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+
+          .department-report-print .report-observed-by {
+            display: block !important;
+          }
+
+          .department-report-print .report-signatures {
+            display: flex !important;
+          }
+
+          .department-report-print .report-print-only {
+            display: block !important;
           }
 
           .header-title {
@@ -156,6 +186,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
         <img
           src="/sasi_logo_main.png"
           alt="SASI Logo"
+          className="report-print-only"
           style={{
             width: "100%",
             maxWidth: "170mm",
@@ -170,7 +201,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           Academic Year {academicYear}
         </div>
 
-        <div className="header-title" style={{ textAlign: "center", fontWeight: 600 }}>
+        <div className="header-title" style={{ textAlign: "center", fontWeight: 700, color: "var(--brand-deep)", marginBottom: 12 }}>
           Student Feedback Individual Analysis on Teaching & Learning
         </div>
       </div>
@@ -182,6 +213,12 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           display: "flex",
           justifyContent: "space-between",
           marginBottom: 12,
+          gap: 16,
+          padding: 16,
+          borderRadius: 18,
+          background: "rgba(255,255,255,0.82)",
+          border: "1px solid rgba(10,152,146,0.12)",
+          boxShadow: "none",
         }}
         >
         <div>
@@ -210,7 +247,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
 
       {/* TABLE */}
       <div>
-        <div style={{ fontWeight: 600, margin: "16px 0 8px" }}>
+        <div style={{ fontWeight: 700, margin: "16px 0 8px", color: "var(--brand-deep)" }}>
           Faculty Individual Analysis
         </div>
 
@@ -221,7 +258,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
               <th style={th}>Question</th>
               <th style={th}>Overall Rating</th>
               <th style={th}>Overall %</th>
-               <th style={th}>Signature</th>
+              <th style={th}>Signature</th>
             </tr>
           </thead>
 
@@ -247,18 +284,20 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
         </table>
       </div>
 
-      <div>
+      <div className="body-text" style={{ marginTop: 12 }}>
         <br /><br />
-        <p style={{fontSize:"17px", marginBottom:"7px"}}><b>Observed By</b></p>
-        <p>HOD</p>
-        <p>Principal</p>
-        <p>Plan of Action by Faculty</p>
+        <div className="report-observed-by">
+          <p style={{fontSize:"17px", marginBottom:"7px"}}><b>Observed By</b></p>
+          <p>HOD</p>
+          <p>Principal</p>
+          <p>Plan of Action by Faculty</p>
+        </div>
       </div>
 
       {/* FOOTER */}
       <div style={{marginTop:"60px"}}>
         <div
-          className="signatures"
+          className="signatures report-signatures"
           style={{
             display: "flex",
             justifyContent: "space-between"   // big on screen
@@ -266,7 +305,7 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
         >
           <div>Signature of Faculty</div>
           <div>HOD</div>
-          <div>Dean (Academic's)</div>
+          <div>Dean (Academic&apos;s)</div>
           <div>Principal</div>
         </div>
       </div>
@@ -275,13 +314,14 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
 };
 
 const th = {
-  border: "1px solid #222",
-  padding: 6,
+  border: "1px solid rgba(10,152,146,0.22)",
+  padding: 8,
+  background: "rgba(10,152,146,0.08)",
 };
 
 const td = {
-  border: "1px solid #222",
-  padding: 6,
+  border: "1px solid rgba(10,152,146,0.16)",
+  padding: 8,
 };
 
 const tdCenter = {

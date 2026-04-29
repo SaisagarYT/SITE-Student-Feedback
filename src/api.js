@@ -34,6 +34,21 @@ export async function getPhase2Active() {
   return !!data.phase2Active;
 }
 /**
+ * Update the global phase2Active flag (admin only)
+ * @param {boolean} phase2Active
+ * @returns {Promise<object>} Backend response
+ */
+export async function setPhaseActivation(phase2Active) {
+  const response = await fetch(`${BASE_URL}/api/admin/phase-activation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ phase2Active }),
+  });
+  if (!response.ok) throw new Error("Failed to update phase2Active");
+  return response.json();
+}
+/**
  * Get course analytics (admin)
  * @param {object} filters - Optional filters: { courseId, facultyId }
  * @returns {Promise<Array>} Array of course analytics objects

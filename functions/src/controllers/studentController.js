@@ -221,7 +221,7 @@ exports.checkFeedbackStatus = async (req, res) => {
 exports.getCourseFaculty = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { semester, branch } = req.query;
+    const { semester, branch, section } = req.query;
 
     if (!courseId) {
       return res.status(400).json({ error: "courseId is required" });
@@ -237,6 +237,9 @@ exports.getCourseFaculty = async (req, res) => {
     }
     if (branch) {
       query = query.where("branch", "==", branch);
+    }
+    if (section) {
+      query = query.where("section", "==", section);
     }
 
     // Fetch all documents with the same courseId
@@ -324,12 +327,13 @@ exports.getStudentCourses = async (req, res) => {
     }
 
     const student = studentSnap.docs[0].data();
-    const { branchId, semester, name } = student;
+    const { branchId, semester, section, name } = student;
 
     const coursesSnap = await db
       .collection("courses")
       .where("branchId", "==", branchId)
       .where("semester", "==", semester)
+      .where("section", "==", section)
       .get();
 
     if (coursesSnap.empty) {
@@ -409,7 +413,7 @@ exports.getStudentCourses = async (req, res) => {
     }
 
     return res.json({
-      student: { name, branchId, semester },
+      student: { name, branchId, semester, section },
       courses
     });
 
