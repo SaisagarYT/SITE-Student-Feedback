@@ -37,6 +37,34 @@ export async function getStudentFeedbackDetails(params) {
 }
 
 /**
+ * Get students list by branch/semester/section (admin)
+ * @param {object} params - { branchId, semester, section }
+ * @returns {Promise<object>} { students: [...] }
+ */
+export async function getStudentsList(params) {
+  const query = new URLSearchParams(params).toString();
+  const response = await fetch(`${BASE_URL}/api/admin/students?${query}`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Failed to fetch students list");
+  return response.json();
+}
+
+/**
+ * Get course-faculty pairs for a branch/semester/section (admin)
+ * @param {object} params - { branchId, semester, section }
+ * @returns {Promise<object>} { pairs: [...], count: number, coursesMissingFacultyIds: [...] }
+ */
+export async function getCourseFacultyPairs(params) {
+  const query = new URLSearchParams(params).toString();
+  const response = await fetch(`${BASE_URL}/api/admin/course-faculty-pairs?${query}`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Failed to fetch course-faculty pairs");
+  return response.json();
+}
+
+/**
  * Normalize course schema to standardized facultyIds array (admin only)
  * @returns {Promise<object>} { message, count, totalCourses }
  */

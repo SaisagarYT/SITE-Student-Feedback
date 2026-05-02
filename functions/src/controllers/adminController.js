@@ -670,7 +670,7 @@ const getStudentFeedbackDetails = async (req, res) => {
 
       records.push({
         studentId: f.studentId,
-        studentName: f.studentName || "",
+        studentName: f.studentName || f.name || "",
         rollNumber: f.rollNumber || "",
         courseId: f.courseId,
         courseName: f.courseName || "",
@@ -760,6 +760,38 @@ const normalizeCoursesSchema = async (req, res) => {
   }
 };
 
+// Return list of students for a branch/semester/section (admin)
+const getStudentsList = async (req, res) => {
+  try {
+    const { branchId, semester, section } = req.query;
+    if (!branchId) return res.status(400).json({ error: "branchId required" });
+
+    let studentQuery = db.collection("students").where("branchId", "==", branchId);
+    if (semester) studentQuery = studentQuery.where("semester", "==", semester);
+    if (section) studentQuery = studentQuery.where("section", "==", section);
+
+    const snap = await studentQuery.get();
+    if (snap.empty) return res.json({ students: [] });
+
+    const students = snap.docs.map(doc => {
+      const s = doc.data();
+      return {
+        studentId: s.studentId,
+        studentName: s.studentName || s.name || "",
+        rollNumber: s.rollNumber || "",
+        branchId: s.branchId || "",
+        semester: s.semester || "",
+        section: s.section || ""
+      };
+    });
+
+    return res.json({ students });
+  } catch (error) {
+    console.error("getStudentsList error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 // (exports consolidated at end of file)
 
 const setFeedbackReportDates = async (req, res) => {
@@ -834,10 +866,66 @@ const setPhaseActivation = async (req, res) => {
   }
 };
 
+// Get course-faculty pairs for a given branch/semester/section
+const getCourseFacultyPairs = async (req, res) => {
+  try {
+    const { branchId, semester, section } = req.query;
+    
+    if (!branchId) {
+      return res.status(400).json({ error: "branchId is required" });
+    }
+
+    let courseQuery = db.collection("courses").where("branchId", "==", branchId);
+
+    if (semester) {
+      courseQuery = courseQuery.where("semester", "==", semester);
+    }
+
+    if (section) {
+      courseQuery = courseQuery.where("section", "==", section);
+    }
+
+    const courseSnap = await courseQuery.get();
+    const pairs = [];
+    const coursesMissingFacultyIds = [];
+
+    courseSnap.forEach(doc => {
+      const course = doc.data();
+      const courseId = course.courseId;
+
+      // STRICT: Only accept normalized facultyIds array
+      if (!Array.isArray(course.facultyIds) || course.facultyIds.length === 0) {
+        coursesMissingFacultyIds.push(courseId);
+        return; // Skip this course
+      }
+
+      course.facultyIds.forEach(fId => {
+        if (fId) {
+          pairs.push(`${courseId}_${fId}`);
+        }
+      });
+    });
+
+    return res.json({
+      pairs,
+      count: pairs.length,
+      coursesMissingFacultyIds,
+      message: coursesMissingFacultyIds.length > 0 
+        ? `⚠️ ${coursesMissingFacultyIds.length} course(s) missing facultyIds. Run normalize-courses to fix.`
+        : "OK"
+    });
+  } catch (error) {
+    console.error("getCourseFacultyPairs error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAdminReport,
   getStudentFeedbackDetails,
   normalizeCoursesSchema,
+  getStudentsList,
+  getCourseFacultyPairs,
   logoutAdmin,
   verifyAdmin,
   loginAdmin,
