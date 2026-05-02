@@ -21,6 +21,34 @@ export async function getAdminReport(params) {
   if (!response.ok) throw new Error("Failed to fetch report");
   return response.json();
 }
+
+/**
+ * Get detailed student feedback records by branch/semester/section/phase
+ * @param {object} params - { branchId, semester, section, phase, fromDate, toDate }
+ * @returns {Promise<object>} { records: [...], count: number }
+ */
+export async function getStudentFeedbackDetails(params) {
+  const query = new URLSearchParams(params).toString();
+  const response = await fetch(`${BASE_URL}/api/admin/student-feedback-details?${query}`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Failed to fetch student feedback details");
+  return response.json();
+}
+
+/**
+ * Normalize course schema to standardized facultyIds array (admin only)
+ * @returns {Promise<object>} { message, count, totalCourses }
+ */
+export async function normalizeCourses() {
+  const response = await fetch(`${BASE_URL}/api/admin/normalize-courses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Failed to normalize courses");
+  return response.json();
+}
 /**
  * Fetch the global phase2Active flag (admin or student)
  * @returns {Promise<boolean>} true if phase2 is active, false otherwise

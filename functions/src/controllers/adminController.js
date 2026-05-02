@@ -292,10 +292,50 @@ const getAdminReport = async (req, res) => {
     }
 
     /* ----------------------------- */
-    /* STEP 3: AGGREGATE */
+    /* STEP 3: FETCH COURSES & BUILD EXPECTED PAIRS */
+/* ----------------------------- */
+
+    let courseQuery = db.collection("courses")
+      .where("branchId", "==", branchId);
+
+    if (semester) {
+      courseQuery = courseQuery.where("semester", "==", semester);
+    }
+
+    if (section) {
+      courseQuery = courseQuery.where("section", "==", section);
+    }
+
+    const courseQuerySnap = await courseQuery.get();
+    const expectedCourseFacultyPairs = new Set();
+    const coursesMissingFacultyIds = [];
+
+    courseQuerySnap.forEach(doc => {
+      const course = doc.data();
+      const courseId = course.courseId;
+
+      // STRICT: Only accept normalized facultyIds array
+      if (!Array.isArray(course.facultyIds) || course.facultyIds.length === 0) {
+        coursesMissingFacultyIds.push(courseId);
+        return; // Skip this course
+      }
+
+      course.facultyIds.forEach(fId => {
+        if (fId) expectedCourseFacultyPairs.add(`${courseId}_${fId}`);
+      });
+    });
+
+    // Log warning if courses are missing proper facultyIds
+    if (coursesMissingFacultyIds.length > 0) {
+      console.warn(`⚠️ ${coursesMissingFacultyIds.length} course(s) missing facultyIds array: ${coursesMissingFacultyIds.join(", ")}. Run /api/admin/normalize-courses to fix.`);
+    }
+
+    /* ----------------------------- */
+    /* STEP 4: AGGREGATE & TRACK STUDENT SUBMISSIONS */
 /* ----------------------------- */
 
     const map = new Map();
+    const studentSubmissions = new Map(); // studentId -> Set of submitted pairs
 
     feedbackSnap.forEach(doc => {
       const f = doc.data();
@@ -317,13 +357,20 @@ const getAdminReport = async (req, res) => {
       }
 
       const key = `${f.courseId}_${f.facultyId}`;
+      const studentId = f.studentId;
+
+      // Track unique student submissions per pair
+      if (!studentSubmissions.has(studentId)) {
+        studentSubmissions.set(studentId, new Set());
+      }
+      studentSubmissions.get(studentId).add(key);
 
       if (!map.has(key)) {
         map.set(key, {
           courseId: f.courseId,
           facultyId: f.facultyId,
           responses: [],
-          submissions: 0,
+          studentSubmitters: new Set(),
           perQuestion: {},
           submittedDates: [],
         });
@@ -360,11 +407,31 @@ const getAdminReport = async (req, res) => {
       const avg = total / count;
 
       map.get(key).responses.push(avg);
-      map.get(key).submissions += 1;
+      map.get(key).studentSubmitters.add(studentId);
 
       // Track submitted date for this feedback
       const submittedAt = f.submittedAt?.toDate ? f.submittedAt.toDate() : new Date(f.submittedAt);
       map.get(key).submittedDates.push(submittedAt);
+    });
+
+    /* ----------------------------- */
+    /* COUNT STUDENTS WHO COMPLETED ALL PAIRS */
+/* ----------------------------- */
+
+    let studentsCompletedPhase = 0;
+
+    studentSubmissions.forEach((submittedPairs, studentId) => {
+      // Check if this student submitted ALL expected pairs
+      let completedAll = true;
+      for (const pair of expectedCourseFacultyPairs) {
+        if (!submittedPairs.has(pair)) {
+          completedAll = false;
+          break;
+        }
+      }
+      if (completedAll) {
+        studentsCompletedPhase += 1;
+      }
     });
 
     /* ----------------------------- */
@@ -403,9 +470,10 @@ const getAdminReport = async (req, res) => {
 
       const percentage = avg * 20;
 
+      // Use completed count for submission rate (all rows show same value: students who completed all pairs)
       const submissionRate =
         totalStudents > 0
-          ? (value.submissions / totalStudents) * 100
+          ? (studentsCompletedPhase / totalStudents) * 100
           : 0;
 
       const faculty = facultyMap.get(value.facultyId);
@@ -442,7 +510,7 @@ const getAdminReport = async (req, res) => {
         category: classify(percentage),
 
         totalStudents,
-        submitted: value.submissions,
+        submitted: studentsCompletedPhase,
         submissionRate: Math.round(submissionRate),
 
         perQuestionAverages,
@@ -477,7 +545,49 @@ const getAdminReport = async (req, res) => {
     // Sort results by percentage descending
     results.sort((a, b) => b.percentage - a.percentage);
 
-    return res.json({ results });
+    // Calculate completion percentage
+    const completionPercent = totalStudents > 0 
+      ? Math.round((studentsCompletedPhase / totalStudents) * 100)
+      : 0;
+
+    // DIAGNOSTIC: Build pair submission counts for debugging mismatch
+    const pairsWithSubmitters = {};
+    map.forEach((value, key) => {
+      pairsWithSubmitters[key] = value.studentSubmitters.size;
+    });
+
+    // DIAGNOSTIC: Sample student submission sets
+    const sampleStudentSets = [];
+    let sampleCount = 0;
+    for (const [studentId, pairs] of studentSubmissions.entries()) {
+      if (sampleCount >= 3) break;
+      sampleStudentSets.push({
+        studentId,
+        submittedPairs: Array.from(pairs),
+        count: pairs.size,
+        completedAll: expectedCourseFacultyPairs.size > 0 && 
+          Array.from(expectedCourseFacultyPairs).every(p => pairs.has(p))
+      });
+      sampleCount++;
+    }
+
+    return res.json({ 
+      results,
+      summary: {
+        totalStudents,
+        studentsCompletedPhase,
+        completionPercent
+      },
+      // Diagnostic fields for debugging
+      diagnostic: {
+        expectedPairsCount: expectedCourseFacultyPairs.size,
+        expectedPairsList: Array.from(expectedCourseFacultyPairs),
+        pairsWithSubmitters,
+        totalUniqueStudentsWhoSubmitted: studentSubmissions.size,
+        sampleStudentSets,
+        coursesMissingFacultyIds: coursesMissingFacultyIds.length > 0 ? coursesMissingFacultyIds : null
+      }
+    });
 
   } catch (error) {
     console.error("Admin report error:", error);
@@ -485,6 +595,172 @@ const getAdminReport = async (req, res) => {
   }
 };
 
+// Get detailed student feedback records by branch/semester/section/phase
+const getStudentFeedbackDetails = async (req, res) => {
+  try {
+    const {
+      branchId,
+      semester,
+      section,
+      phase = "1",
+      fromDate,
+      toDate
+    } = req.query;
+
+    if (!branchId) {
+      return res.status(400).json({ error: "branchId required" });
+    }
+
+    /* ----------------------------- */
+    /* STEP 1: FETCH FEEDBACK */
+/* ----------------------------- */
+
+    let feedbackQuery = db.collection("feedback")
+      .where("branchId", "==", branchId);
+
+    if (semester) {
+      feedbackQuery = feedbackQuery.where("semester", "==", semester);
+    }
+
+    if (section) {
+      feedbackQuery = feedbackQuery.where("section", "==", section);
+    }
+
+    const feedbackSnap = await feedbackQuery.get();
+
+    if (feedbackSnap.empty) {
+      return res.json({ records: [] });
+    }
+
+    // Filter by phase
+    const requestedPhaseField = phase === "1" ? "p1" : "p2";
+
+    /* ----------------------------- */
+    /* STEP 2: BUILD RECORDS */
+/* ----------------------------- */
+
+    const records = [];
+
+    feedbackSnap.forEach(doc => {
+      const f = doc.data();
+
+      // PHASE FILTER
+      if ((phase === "1" && f.phase !== "p1") ||
+          (phase === "2" && f.phase !== "p2")) {
+        return;
+      }
+
+      // DATE FILTER
+      if (fromDate || toDate) {
+        const submitted = f.submittedAt?.toDate
+          ? f.submittedAt.toDate()
+          : new Date(f.submittedAt);
+
+        if (fromDate && submitted < new Date(fromDate)) return;
+        if (toDate && submitted > new Date(toDate)) return;
+      }
+
+      const maxQ = phase === "1" ? 9 : 11;
+      const answers = {};
+
+      for (let i = 1; i <= maxQ; i++) {
+        const key = `q${i}`;
+        answers[key] = f.ratings && f.ratings[key] != null ? f.ratings[key] : null;
+      }
+
+      records.push({
+        studentId: f.studentId,
+        studentName: f.studentName || "",
+        rollNumber: f.rollNumber || "",
+        courseId: f.courseId,
+        courseName: f.courseName || "",
+        facultyId: f.facultyId,
+        facultyName: f.facultyName || "",
+        branchId: f.branchId,
+        semester: f.semester,
+        section: f.section,
+        phase: f.phase,
+        answers, // q1, q2, ..., q9/q11
+        submittedAt: f.submittedAt ? (f.submittedAt.toDate ? f.submittedAt.toDate().toISOString() : new Date(f.submittedAt).toISOString()) : null
+      });
+    });
+
+    // Sort by studentId, then courseId
+    records.sort((a, b) => {
+      if (a.studentId !== b.studentId) return a.studentId.localeCompare(b.studentId);
+      return a.courseId.localeCompare(b.courseId);
+    });
+
+    return res.json({ records, count: records.length });
+
+  } catch (error) {
+    console.error("getStudentFeedbackDetails error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// Normalize course schema: convert facultyId/Faculty Id to standardized facultyIds array
+const normalizeCoursesSchema = async (req, res) => {
+  try {
+    const coursesSnap = await db.collection("courses").get();
+
+    if (coursesSnap.empty) {
+      return res.json({ message: "No courses to normalize", count: 0 });
+    }
+
+    const updates = [];
+    let normalizedCount = 0;
+
+    for (const doc of coursesSnap.docs) {
+      const course = doc.data();
+      const courseId = course.courseId;
+
+      // Check if already normalized
+      if (Array.isArray(course.facultyIds) && course.facultyIds.length > 0) {
+        continue; // Already normalized
+      }
+
+      // Extract faculty IDs from old schema
+      let facultyIds = [];
+      if (course.facultyId && typeof course.facultyId === 'string') {
+        facultyIds.push(course.facultyId);
+      } else if (course["Faculty Id"] && typeof course["Faculty Id"] === 'string') {
+        facultyIds.push(course["Faculty Id"]);
+      }
+
+      if (facultyIds.length === 0) {
+        console.warn(`⚠️ Course ${courseId} has no faculty assignment. Skipping.`);
+        continue;
+      }
+
+      // Update the course doc with normalized schema
+      updates.push(
+        doc.ref.update({
+          facultyIds: facultyIds,
+          // Optionally remove old fields (commented out for safety)
+          // facultyId: db.FieldValue.delete(),
+          // "Faculty Id": db.FieldValue.delete(),
+        })
+      );
+      normalizedCount++;
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates);
+    }
+
+    return res.json({
+      message: `Normalized ${normalizedCount} course(s)`,
+      count: normalizedCount,
+      totalCourses: coursesSnap.size
+    });
+  } catch (error) {
+    console.error("normalizeCoursesSchema error:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// (exports consolidated at end of file)
 
 const setFeedbackReportDates = async (req, res) => {
   try {
@@ -560,6 +836,8 @@ const setPhaseActivation = async (req, res) => {
 
 module.exports = {
   getAdminReport,
+  getStudentFeedbackDetails,
+  normalizeCoursesSchema,
   logoutAdmin,
   verifyAdmin,
   loginAdmin,

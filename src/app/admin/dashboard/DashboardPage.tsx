@@ -213,6 +213,7 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState("section");
   const [data, setData] = useState<ReportRow[]>([]);
   const [reportDates, setReportDates] = useState<{ phase1Date?: string; phase2Date?: string } | null>(null);
+  const [reportSummary, setReportSummary] = useState<{ totalStudents?: number; studentsCompletedPhase?: number; completionPercent?: number } | null>(null);
 
 
   const fetchReport = async () => {
@@ -231,8 +232,10 @@ export default function AdminDashboard() {
       const res = await getAdminReport({ ...filters, phase: phaseMapped, academicYear, view: tab });
       console.log(res.results)
       setData(res.results || []);
+      setReportSummary(res.summary || null);
     } catch {
       setData([]);
+      setReportSummary(null);
     } finally {
       // setLoading(false); // removed unused loading state
     }
@@ -352,6 +355,24 @@ export default function AdminDashboard() {
             />
             <Tabs tab={tab} setTab={setTab} />
           </div>
+          {reportSummary && tab === "section" && (
+            <div className="admin-card-strong mt-4 p-4 sm:p-6 border-2" style={{ borderColor: 'var(--brand)', background: 'linear-gradient(135deg, rgba(10, 152, 146, 0.06), rgba(10, 152, 146, 0.03))' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-(--muted)">Total Students</p>
+                  <p className="text-2xl font-bold text-(--ink) mt-1">{reportSummary.totalStudents || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-(--muted)">Completed (All Courses)</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand)' }}>{reportSummary.studentsCompletedPhase || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-(--muted)">Completion Rate</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand-deep)' }}>{reportSummary.completionPercent || 0}%</p>
+                </div>
+              </div>
+            </div>
+          )}
           {tab === "section" ? (
               <div className="admin-soft-panel mt-4 rounded-[1.75rem] p-4 sm:p-6 lg:p-8 print:m-0! print:rounded-none! print:border-0! print:bg-transparent! print:p-0! print:shadow-none!">
                 <SectionReport
