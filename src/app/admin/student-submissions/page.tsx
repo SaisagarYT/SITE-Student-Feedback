@@ -1,8 +1,10 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
+import { useSearchParams } from "next/navigation";
 import FilterBar from "../../../components/admin/FilterBar";
 import AdminNavbar from "../../../components/admin/AdminNavbar";
+import AdminDashboardProtected from "../dashboard/AdminDashboardProtected";
 import StudentDetailsModal from "../../../components/admin/StudentDetailsModal";
 import { getStudentFeedbackDetails, getAdminReport, getStudentsList, getCourseFacultyPairs } from "../../../api";
 
@@ -57,6 +59,9 @@ type StudentsListResponse = {
   }[];
 };
 
+type BinaryFilter = "all" | "yes" | "no";
+type DateSort = "newer" | "older";
+
 function formatSubmissionDateTime(value?: string | null) {
   if (!value) return { date: "-", time: "" };
 
@@ -85,7 +90,49 @@ function normalizeKey(value?: string | null) {
   return value ? value.trim().toLowerCase() : "";
 }
 
+function InlineLoadingPill() {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(10,152,146,0.16)] bg-white/90 px-4 py-2 text-xs font-semibold text-(--brand-deep) shadow-sm">
+      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-(--brand)" />
+      Updating submissions...
+    </div>
+  );
+}
+
+function SummaryCardsSkeleton() {
+  return (
+    <div className="mt-6 grid animate-pulse grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="admin-card border border-[rgba(10,152,146,0.1)] bg-white p-5">
+          <div className="h-4 w-24 rounded bg-[rgba(10,152,146,0.12)]" />
+          <div className="mt-3 h-8 w-14 rounded bg-[rgba(10,152,146,0.16)]" />
+          <div className="mt-3 h-3 w-28 rounded bg-[rgba(10,152,146,0.1)]" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TableRowsSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 8 }).map((_, idx) => (
+        <tr key={`skeleton-${idx}`} className="border-t border-[rgba(10,152,146,0.1)] animate-pulse">
+          <td className="px-3 py-3"><div className="h-4 w-16 rounded bg-[rgba(10,152,146,0.12)]" /></td>
+          <td className="px-3 py-3"><div className="h-4 w-36 rounded bg-[rgba(10,152,146,0.12)]" /></td>
+          <td className="px-3 py-3"><div className="h-6 w-12 rounded-full bg-[rgba(10,152,146,0.12)]" /></td>
+          <td className="px-3 py-3"><div className="h-6 w-12 rounded-full bg-[rgba(239,42,113,0.12)]" /></td>
+          <td className="px-3 py-3"><div className="h-6 w-16 rounded-full bg-[rgba(10,152,146,0.12)]" /></td>
+          <td className="px-3 py-3"><div className="h-4 w-28 rounded bg-[rgba(10,152,146,0.12)]" /></td>
+          <td className="px-3 py-3"><div className="h-8 w-16 rounded-full bg-[rgba(10,152,146,0.12)]" /></td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export default function StudentSubmissionsPage() {
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<Filters>({
     program: "",
     branchId: "",
@@ -99,10 +146,34 @@ export default function StudentSubmissionsPage() {
 
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState<StudentRow[]>([]);
-  const [expectedPairsCount, setExpectedPairsCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [submittedFilter, setSubmittedFilter] = useState<BinaryFilter>("all");
+  const [completedFilter, setCompletedFilter] = useState<BinaryFilter>("all");
+  const [dateSort, setDateSort] = useState<DateSort>("newer");
+
+  useEffect(() => {
+    const nextFilters: Partial<Filters> = {
+      program: searchParams.get("program") || "",
+      branchId: searchParams.get("branchId") || "",
+      section: searchParams.get("section") || "",
+      semester: searchParams.get("semester") || "",
+      phase: searchParams.get("phase") || "",
+      fromDate: searchParams.get("fromDate") || "",
+      toDate: searchParams.get("toDate") || "",
+      academicYear: searchParams.get("academicYear") || "",
+    };
+
+    const hasAnyQueryFilter = Object.values(nextFilters).some(Boolean);
+    if (!hasAnyQueryFilter) return;
+
+    setFilters((prev) => ({
+      ...prev,
+      ...nextFilters,
+      phase: nextFilters.phase || prev.phase,
+    }));
+  }, [searchParams]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -305,40 +376,111 @@ export default function StudentSubmissionsPage() {
       });
 
       setStudents(rows.sort((a, b) => (a.rollNumber || "").localeCompare(b.rollNumber || "")));
-      setExpectedPairsCount(rows.length > 0 ? Math.max(...rows.map(r => r.expectedCount)) : 0);
     } catch (err: unknown) {
       console.error(err);
       if (err instanceof Error) setError(err.message);
       else setError(String(err));
       setStudents([]);
-      setExpectedPairsCount(0);
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate summary stats
-  const totalStudents = students.length;
-  const submittedCount = students.filter(s => s.submittedCount > 0).length;
-  const completedCount = students.filter(s => s.completedAll).length;
-  const pendingCount = students.filter(s => !s.completedAll).length;
+  const filteredStudents = useMemo(() => {
+    let rows = [...students];
+
+    if (submittedFilter !== "all") {
+      rows = rows.filter((s) => (submittedFilter === "yes" ? s.submittedCount > 0 : s.submittedCount === 0));
+    }
+
+    if (completedFilter !== "all") {
+      rows = rows.filter((s) => (completedFilter === "yes" ? s.completedAll : !s.completedAll));
+    }
+
+    rows.sort((a, b) => {
+      const aTs = a.lastSubmittedAt ? new Date(a.lastSubmittedAt).getTime() : Number.NaN;
+      const bTs = b.lastSubmittedAt ? new Date(b.lastSubmittedAt).getTime() : Number.NaN;
+
+      if (Number.isNaN(aTs) && Number.isNaN(bTs)) return (a.rollNumber || "").localeCompare(b.rollNumber || "");
+      if (Number.isNaN(aTs)) return 1;
+      if (Number.isNaN(bTs)) return -1;
+
+      return dateSort === "newer" ? bTs - aTs : aTs - bTs;
+    });
+
+    return rows;
+  }, [students, submittedFilter, completedFilter, dateSort]);
+
+  // Calculate summary stats on filtered data
+  const totalStudents = filteredStudents.length;
+  const submittedCount = filteredStudents.filter(s => s.submittedCount > 0).length;
+  const completedCount = filteredStudents.filter(s => s.completedAll).length;
+  const pendingCount = filteredStudents.filter(s => !s.completedAll).length;
+  const visibleExpectedPairsCount = filteredStudents.length > 0 ? Math.max(...filteredStudents.map(r => r.expectedCount)) : 0;
 
   return (
-    <div className="admin-dashboard-shell flex min-h-screen flex-col">
-      <Head>
-        <title>Student Submissions</title>
-      </Head>
-      <AdminNavbar />
-      <div className="p-4 sm:p-6 lg:p-8">
+    <AdminDashboardProtected>
+      <div className="admin-dashboard-shell flex min-h-screen flex-col">
+        <Head>
+          <title>Student Submissions</title>
+        </Head>
+        <AdminNavbar />
+        <div className="p-4 sm:p-6 lg:p-8">
         <FilterBar filters={filters} setFilters={setFilters} onReportDatesFetched={() => {}} />
 
-        <div className="mt-4">
-          <h2 className="text-xl font-semibold">Student Submissions</h2>
-          <p className="text-sm text-(--muted)">Shows submission status per student for selected branch & section.</p>
+        <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Student Submissions</h2>
+            <p className="text-sm text-(--muted)">Shows submission status per student for selected branch & section.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-(--muted)">Submitted</span>
+              <select
+                value={submittedFilter}
+                onChange={(e) => setSubmittedFilter(e.target.value as BinaryFilter)}
+                className="admin-select min-w-28 rounded-full px-3 py-1.5"
+              >
+                <option value="all">All</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-(--muted)">Completed</span>
+              <select
+                value={completedFilter}
+                onChange={(e) => setCompletedFilter(e.target.value as BinaryFilter)}
+                className="admin-select min-w-28 rounded-full px-3 py-1.5"
+              >
+                <option value="all">All</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-(--muted)">Date</span>
+              <select
+                value={dateSort}
+                onChange={(e) => setDateSort(e.target.value as DateSort)}
+                className="admin-select min-w-28 rounded-full px-3 py-1.5"
+              >
+                <option value="newer">Newer</option>
+                <option value="older">Older</option>
+              </select>
+            </label>
+          </div>
         </div>
+        {loading && (
+          <div className="mt-3">
+            <InlineLoadingPill />
+          </div>
+        )}
 
         {/* Summary Cards */}
-        {!loading && students.length > 0 && (
+        {loading ? (
+          <SummaryCardsSkeleton />
+        ) : students.length > 0 && (
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* Total Students Card */}
             <div className="admin-card border border-slate-200 bg-linear-to-br from-slate-50 to-white p-5">
@@ -381,7 +523,7 @@ export default function StudentSubmissionsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-(--muted)">Expected Pairs</p>
-                  <p className="mt-2 text-3xl font-bold text-(--ink)">{expectedPairsCount}</p>
+                  <p className="mt-2 text-3xl font-bold text-(--ink)">{visibleExpectedPairsCount}</p>
                   <p className="mt-1 text-xs text-(--muted)">course-faculty pairs</p>
                 </div>
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
@@ -436,7 +578,6 @@ export default function StudentSubmissionsPage() {
         )}
 
         <div className="mt-6">
-          {loading && <div className="text-(--muted)">Loading...</div>}
           {error && <div className="text-rose-600">{error}</div>}
 
           <div className="admin-table-shell mt-3 overflow-hidden">
@@ -457,14 +598,16 @@ export default function StudentSubmissionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {students.length === 0 && !loading ? (
+                {loading ? (
+                  <TableRowsSkeleton />
+                ) : filteredStudents.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-6 text-center text-(--muted)">
                       No records found for selected filters.
                     </td>
                   </tr>
                 ) : (
-                  students.map((s, idx) => (
+                  filteredStudents.map((s, idx) => (
                     <tr key={s.studentId || s.rollNumber || idx} className="border-t border-[rgba(10,152,146,0.1)] transition hover:bg-[rgba(10,152,146,0.06)]">
                       <td className="px-3 py-3 align-top font-medium text-(--ink)">{s.rollNumber || s.studentId}</td>
                       <td className="px-3 py-3 align-top text-(--ink)">{s.studentName || "-"}</td>
@@ -498,19 +641,20 @@ export default function StudentSubmissionsPage() {
             </div>
           </div>
         </div>
+        </div>
+        <StudentDetailsModal open={modalOpen} onClose={() => { setModalOpen(false); setSelectedStudent(null); }} student={selectedStudent ? {
+          studentId: selectedStudent.studentId,
+          studentName: selectedStudent.studentName,
+          rollNumber: selectedStudent.rollNumber,
+          submittedPairs: selectedStudent.submittedPairs,
+          submittedPairLabels: selectedStudent.submittedPairLabels,
+          expectedCount: selectedStudent.expectedCount,
+          submittedCount: selectedStudent.submittedCount,
+          missing: selectedStudent.missing,
+          missingPairLabels: selectedStudent.missingPairLabels,
+          lastSubmittedAt: selectedStudent.lastSubmittedAt
+        } : null} />
       </div>
-      <StudentDetailsModal open={modalOpen} onClose={() => { setModalOpen(false); setSelectedStudent(null); }} student={selectedStudent ? {
-        studentId: selectedStudent.studentId,
-        studentName: selectedStudent.studentName,
-        rollNumber: selectedStudent.rollNumber,
-        submittedPairs: selectedStudent.submittedPairs,
-        submittedPairLabels: selectedStudent.submittedPairLabels,
-        expectedCount: selectedStudent.expectedCount,
-        submittedCount: selectedStudent.submittedCount,
-        missing: selectedStudent.missing,
-        missingPairLabels: selectedStudent.missingPairLabels,
-        lastSubmittedAt: selectedStudent.lastSubmittedAt
-      } : null} />
-    </div>
+    </AdminDashboardProtected>
   );
 }

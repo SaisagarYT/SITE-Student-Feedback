@@ -1,5 +1,6 @@
 "use client";
 import Head from "next/head";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { getAdminReport, getStudentFeedbackDetails, setFeedbackReportDates, getFeedbackReportDates, getFeedbackReportYears } from "../../../api";
 
@@ -518,6 +519,28 @@ export default function AdminDashboard() {
               {reportLoading && <ReportSkeletonCard />}
               {!reportLoading && reportSummary && (
                 <div className="admin-card-strong p-4 sm:p-6 border-2 print:hidden" style={{ borderColor: 'var(--brand)', background: 'linear-gradient(135deg, rgba(10, 152, 146, 0.06), rgba(10, 152, 146, 0.03))' }}>
+                  <div className="mb-3 flex items-center justify-end">
+                    <Link
+                      href={{
+                        pathname: "/admin/student-submissions",
+                        query: {
+                          program: filters.program || undefined,
+                          branchId: filters.branchId || undefined,
+                          section: filters.section || undefined,
+                          semester: filters.semester || undefined,
+                          phase: filters.phase || undefined,
+                          fromDate: filters.fromDate || undefined,
+                          toDate: filters.toDate || undefined,
+                          academicYear: filters.academicYear || undefined,
+                        },
+                      }}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border border-[rgba(10,152,146,0.18)] bg-white px-3 py-1 text-sm font-semibold text-(--brand-deep) transition hover:-translate-y-0.5 hover:border-[rgba(10,152,146,0.3)] hover:bg-[rgba(10,152,146,0.06)]"
+                    >
+                      View more
+                    </Link>
+                  </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <MetricItem label="Total Students" value={reportSummary.totalStudents || 0} tone="ink" />
                     <MetricItem label="Submitted" value={reportSummary.submittedCount || 0} tone="brand" />
