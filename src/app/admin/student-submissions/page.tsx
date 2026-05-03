@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useSearchParams } from "next/navigation";
 import FilterBar from "../../../components/admin/FilterBar";
@@ -131,7 +131,7 @@ function TableRowsSkeleton() {
   );
 }
 
-export default function StudentSubmissionsPage() {
+function StudentSubmissionsPageContent() {
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<Filters>({
     program: "",
@@ -656,5 +656,19 @@ export default function StudentSubmissionsPage() {
         } : null} />
       </div>
     </AdminDashboardProtected>
+  );
+}
+
+export default function StudentSubmissionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="admin-dashboard-shell flex min-h-screen items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-(--brand)" />
+        </div>
+      }
+    >
+      <StudentSubmissionsPageContent />
+    </Suspense>
   );
 }
