@@ -980,7 +980,7 @@ const getStudentFeedbackDetails = async (req, res) => {
         records.push({
           studentId: normalizeId(student.studentId),
           studentName: pickFirstString(student, ["studentName", "Student Name", "name", "Name"]),
-          rollNumber: pickFirstString(student, ["rollNumber", "Roll Number", "rollno", "Roll No", "rollNo"]) || "",
+          rollNumber: pickFirstString(student, ["rollNumber", "Roll N umber", "rollno", "Roll No", "rollNo"]) || "",
           courseId: "",
           courseName: "",
           facultyId: "",
