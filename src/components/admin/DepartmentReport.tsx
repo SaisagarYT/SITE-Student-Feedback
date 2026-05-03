@@ -98,19 +98,9 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
             padding: 0;
           }
 
-          body * {
-            visibility: hidden;
-          }
-
-          .department-report-print,
-          .department-report-print * {
-            visibility: visible;
-          }
-
           .department-report-print {
-            position: absolute;
-            top: 0;
-            left: 0;
+            display: block !important;
+            position: relative !important;
             width: 100%;
             margin: 0;
             background: transparent !important;

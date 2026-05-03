@@ -159,19 +159,9 @@ const SectionReport: React.FC<SectionReportProps> = ({
             padding: 0;
           }
 
-          body * {
-            visibility: hidden;
-          }
-
-          .section-report-print,
-          .section-report-print * {
-            visibility: visible;
-          }
-
           .section-report-print {
-            position: absolute;
-            top: 0;
-            left: 0;
+            display: block !important;
+            position: relative !important;
             width: 100%;
             margin: 0;
             background: transparent !important;

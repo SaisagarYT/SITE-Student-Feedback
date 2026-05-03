@@ -199,6 +199,68 @@ function FeedbackDatesSection() {
   );
 }
 
+function MetricItem({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  tone: "ink" | "brand" | "deep";
+}) {
+  const valueColor =
+    tone === "brand" ? "var(--brand)" : tone === "deep" ? "var(--brand-deep)" : "var(--ink)";
+
+  return (
+    <div className="rounded-2xl border border-[rgba(10,152,146,0.12)] bg-white/80 p-4 shadow-sm">
+      <p className="text-sm font-semibold text-(--muted)">{label}</p>
+      <p className="mt-1 text-2xl font-bold" style={{ color: valueColor }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ReportSkeletonCard() {
+  return (
+    <div className="admin-card-strong animate-pulse border-2 p-4 sm:p-6" style={{ borderColor: "var(--brand)", background: "linear-gradient(135deg, rgba(10, 152, 146, 0.05), rgba(10, 152, 146, 0.02))" }}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-[rgba(10,152,146,0.12)] bg-white/80 p-4">
+            <div className="h-4 w-24 rounded bg-[rgba(10,152,146,0.14)]" />
+            <div className="mt-3 h-8 w-16 rounded bg-[rgba(10,152,146,0.18)]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReportSkeletonPanel() {
+  return (
+    <div className="absolute inset-0 z-20 rounded-[1.75rem] bg-white/70 p-6 backdrop-blur-sm">
+      <div className="h-full animate-pulse rounded-3xl border border-dashed border-[rgba(10,152,146,0.18)] bg-linear-to-br from-white to-[rgba(10,152,146,0.05)] p-6">
+        <div className="h-6 w-48 rounded bg-[rgba(10,152,146,0.15)]" />
+        <div className="mt-6 grid gap-3">
+          <div className="h-4 w-11/12 rounded bg-[rgba(10,152,146,0.12)]" />
+          <div className="h-4 w-10/12 rounded bg-[rgba(10,152,146,0.12)]" />
+          <div className="h-4 w-9/12 rounded bg-[rgba(10,152,146,0.12)]" />
+          <div className="h-4 w-8/12 rounded bg-[rgba(10,152,146,0.12)]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InlineLoadingPill() {
+  return (
+    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(10,152,146,0.16)] bg-white/90 px-4 py-2 text-sm font-semibold text-(--brand-deep) shadow-sm">
+      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-(--brand)" />
+      Updating filtered data...
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [filters, setFilters] = useState({
     program: "",
@@ -214,9 +276,11 @@ export default function AdminDashboard() {
   const [data, setData] = useState<ReportRow[]>([]);
   const [reportDates, setReportDates] = useState<{ phase1Date?: string; phase2Date?: string } | null>(null);
   const [reportSummary, setReportSummary] = useState<{ totalStudents?: number; submittedCount?: number; completedCount?: number; completionPercent?: number } | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
 
   const fetchReport = async () => {
+    setReportLoading(true);
     try {
       // Map phase to backend query expected value (backend expects "1" or "2")
       const phaseMapped = filters.phase === "2" ? "2" : "1";
@@ -318,6 +382,8 @@ export default function AdminDashboard() {
     } catch {
       setData([]);
       setReportSummary(null);
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -418,11 +484,23 @@ export default function AdminDashboard() {
             @page { margin: 0; }
             body { margin: 0; }
             header, footer { display: none !important; }
+            .admin-dashboard-shell > :not(.flex) {
+              display: none !important;
+            }
+            .admin-dashboard-shell > .flex > :not(.print-report-area) {
+              display: none !important;
+            }
+            .print-report-area {
+              display: block !important;
+              width: 100%;
+            }
           }
         `}</style>
       </Head>
       <div className="admin-dashboard-shell flex min-h-screen flex-col print:bg-white">
-        <AdminNavbar />
+        <div className="print:hidden">
+          <AdminNavbar />
+        </div>
         <div className="flex flex-1 flex-col overflow-visible p-4 sm:p-6 lg:p-8">
           <div className="print:hidden space-y-4">
             <FilterBar
@@ -435,31 +513,27 @@ export default function AdminDashboard() {
             />
             <Tabs tab={tab} setTab={setTab} />
           </div>
-          {reportSummary && tab === "section" && (
-            <div className="admin-card-strong mt-4 p-4 sm:p-6 border-2" style={{ borderColor: 'var(--brand)', background: 'linear-gradient(135deg, rgba(10, 152, 146, 0.06), rgba(10, 152, 146, 0.03))' }}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-(--muted)">Total Students</p>
-                  <p className="text-2xl font-bold text-(--ink) mt-1">{reportSummary.totalStudents || 0}</p>
+          {tab === "section" && (
+            <div className="print-report-area relative mt-4">
+              {reportLoading && <ReportSkeletonCard />}
+              {!reportLoading && reportSummary && (
+                <div className="admin-card-strong p-4 sm:p-6 border-2 print:hidden" style={{ borderColor: 'var(--brand)', background: 'linear-gradient(135deg, rgba(10, 152, 146, 0.06), rgba(10, 152, 146, 0.03))' }}>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <MetricItem label="Total Students" value={reportSummary.totalStudents || 0} tone="ink" />
+                    <MetricItem label="Submitted" value={reportSummary.submittedCount || 0} tone="brand" />
+                    <MetricItem label="Completed (All Courses)" value={reportSummary.completedCount || 0} tone="brand" />
+                    <MetricItem label="Completion Rate" value={`${reportSummary.completionPercent || 0}%`} tone="deep" />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-(--muted)">Submitted</p>
-                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand)' }}>{reportSummary.submittedCount || 0}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-(--muted)">Completed (All Courses)</p>
-                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand)' }}>{reportSummary.completedCount || 0}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-(--muted)">Completion Rate</p>
-                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand-deep)' }}>{reportSummary.completionPercent || 0}%</p>
-                </div>
-              </div>
+              )}
             </div>
           )}
           {tab === "section" ? (
-              <div className="admin-soft-panel mt-4 rounded-[1.75rem] p-4 sm:p-6 lg:p-8 print:m-0! print:rounded-none! print:border-0! print:bg-transparent! print:p-0! print:shadow-none!">
-                <SectionReport
+              <div className="print-report-area relative mt-4 rounded-[1.75rem]">
+                {reportLoading && <ReportSkeletonPanel />}
+                <div className={reportLoading ? "pointer-events-none opacity-60" : ""}>
+                  <div className="admin-soft-panel rounded-[1.75rem] p-4 sm:p-6 lg:p-8 print:m-0! print:rounded-none! print:border-0! print:bg-transparent! print:p-0! print:shadow-none!">
+                    <SectionReport
                 academicYear={filters.academicYear}
                 program={filters.program || "B.Tech"}
                 department={filters.branchId}
@@ -492,23 +566,30 @@ export default function AdminDashboard() {
                   };
                 }) : []}
               />
+                  </div>
+                </div>
               </div>
           ) : tab === "faculty" ? (
             <>
-              <div className="admin-card mt-4 mb-4 flex flex-wrap items-center gap-3 p-4 print:hidden">
-                <label htmlFor="faculty-select" className="font-semibold text-(--ink)">Select Faculty:</label>
-                <select
-                  id="faculty-select"
-                  value={selectedFaculty}
-                  onChange={e => setSelectedFaculty(e.target.value)}
-                  className="admin-select min-w-80 px-3 py-2"
-                >
-                  {facultyList.map(faculty => (
-                    <option key={faculty.key} value={faculty.key}>
-                      {faculty.display}
-                    </option>
-                  ))}
-                </select>
+              <div className="relative mt-4 mb-4">
+                {reportLoading && <InlineLoadingPill />}
+                <div className={reportLoading ? "pointer-events-none opacity-60" : ""}>
+                  <div className="admin-card flex flex-wrap items-center gap-3 p-4 print:hidden">
+                    <label htmlFor="faculty-select" className="font-semibold text-(--ink)">Select Faculty:</label>
+                    <select
+                      id="faculty-select"
+                      value={selectedFaculty}
+                      onChange={e => setSelectedFaculty(e.target.value)}
+                      className="admin-select min-w-80 px-3 py-2"
+                    >
+                      {facultyList.map(faculty => (
+                        <option key={faculty.key} value={faculty.key}>
+                          {faculty.display}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
               {selectedFacultyRow ? (
                 (() => {
@@ -524,7 +605,10 @@ export default function AdminDashboard() {
                   }
                   //
                   return (
-                    <div className="admin-soft-panel mt-4 rounded-[1.75rem] p-4 sm:p-6 lg:p-8 print:m-0! print:rounded-none! print:border-0! print:bg-transparent! print:p-0! print:shadow-none!">
+                    <div className="relative mt-4 rounded-[1.75rem]">
+                      {reportLoading && <ReportSkeletonPanel />}
+                      <div className={reportLoading ? "pointer-events-none opacity-60" : ""}>
+                        <div className="admin-soft-panel rounded-[1.75rem] p-4 sm:p-6 lg:p-8 print:m-0! print:rounded-none! print:border-0! print:bg-transparent! print:p-0! print:shadow-none!">
                       <DepartmentReport
                       academicYear={filters.academicYear}
                       program={filters.program || "B.Tech"}
@@ -545,6 +629,8 @@ export default function AdminDashboard() {
                       facultyId={facultyList.find(f => f.key === selectedFaculty)?.facultyId || ""}
                       courseName={facultyList.find(f => f.key === selectedFaculty)?.courseName || ""}
                     />
+                        </div>
+                      </div>
                     </div>
                   );
                 })()
