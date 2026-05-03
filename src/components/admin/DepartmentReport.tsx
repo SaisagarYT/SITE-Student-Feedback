@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 
 interface FacultyAnalysisRow {
   sNo: number;
@@ -21,6 +22,7 @@ interface DepartmentReportProps {
   avgRating: string | number;
   avgPercent: string | number;
   submitted?: number;
+  completed?: number;
   totalStudents?: number;
   facultyDisplayName?: string;
   facultyId?: string;
@@ -41,7 +43,8 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
   facultyRows,
   avgRating,
   avgPercent,
-  submitted,
+  
+  completed,
   totalStudents,
   facultyDisplayName,
   facultyId,
@@ -183,14 +186,17 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
 
       {/* HEADER */}
       <div style={{ marginBottom: 8 }}>
-        <img
+        <Image
           src="/sasi_logo_main.png"
           alt="SASI Logo"
           className="report-print-only"
+          width={1200}
+          height={320}
+          priority
           style={{
             width: "100%",
             maxWidth: "170mm",
-            maxHeight: "40mm", // big on screen
+            maxHeight: "40mm",
             objectFit: "contain",
             display: "block",
             margin: "0 auto",
@@ -236,8 +242,8 @@ const DepartmentReport: React.FC<DepartmentReportProps> = ({
           <div><b>Year:</b> {year}</div>
           <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
           <div><b>Section:</b> {section}</div>
-          {submitted !== undefined && (
-            <div><b>Submitted:</b> {submitted}</div>
+          {typeof completed === "number" && (
+            <div><b>Completed:</b> {completed}</div>
           )}
           {totalStudents !== undefined && (
             <div><b>Total Students:</b> {totalStudents}</div>

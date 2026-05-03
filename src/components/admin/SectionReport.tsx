@@ -1,5 +1,6 @@
 import Image from "next/image";
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { getStudentFeedbackDetails } from "../../api";
 
 interface SectionReportRow {
   sNo: number;
@@ -22,6 +23,7 @@ interface SectionReportProps {
   semester: string;
   section: string;
   submitted?: number;
+  completed?: number;
   setSection: (section: string) => void;
   rows: SectionReportRow[];
 }
@@ -34,10 +36,79 @@ const SectionReport: React.FC<SectionReportProps> = ({
   year,
   semester,
   section,
-  submitted,
+  completed,
   setSection,
   rows,
 }) => {
+  const [fallbackCompleted, setFallbackCompleted] = useState<number | null>(null);
+  const [loadingCompleted, setLoadingCompleted] = useState(false);
+
+  function normalizeKey(value?: string | null) {
+    return value ? value.trim().toLowerCase() : "";
+  }
+
+  useEffect(() => {
+    // If parent provided completed, no need to fetch. If department is missing, skip.
+    if (typeof completed === "number" || !department) {
+      setFallbackCompleted(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchCompleted() {
+      setLoadingCompleted(true);
+      try {
+        const phaseMapped = phase === "p2" ? "2" : "1";
+        type FeedbackRecord = {
+          studentId?: string;
+          studentName?: string;
+          name?: string;
+          rollNumber?: string;
+          courseId?: string;
+          facultyId?: string;
+          submittedAt?: string | null;
+        };
+
+        type DetailsResponse = {
+          records?: FeedbackRecord[];
+          expectedPairsByStudent?: Record<string, string[]>;
+        };
+
+        const details = (await getStudentFeedbackDetails({
+          branchId: department,
+          semester,
+          section: section || undefined,
+          phase: phaseMapped,
+        })) as DetailsResponse;
+
+        const records = Array.isArray(details?.records) ? details.records : [];
+        const expectedPairsByStudent = details?.expectedPairsByStudent || {};
+
+        const byStudent = new Map<string, { submittedPairs: Set<string> }>();
+        records.forEach((r) => {
+          const sid = normalizeKey((r as FeedbackRecord).studentId) || normalizeKey((r as FeedbackRecord).rollNumber) || normalizeKey((r as FeedbackRecord).studentName) || normalizeKey((r as FeedbackRecord).name) || "unknown";
+          if (!byStudent.has(sid)) byStudent.set(sid, { submittedPairs: new Set<string>() });
+          const entry = byStudent.get(sid)!;
+          const key = `${(r as FeedbackRecord).courseId}::${(r as FeedbackRecord).facultyId}`;
+          if (key) entry.submittedPairs.add(key);
+        });
+
+        const completedCount = Array.from(byStudent.entries()).filter(([sid, val]) => {
+          const expectedForThisStudent = expectedPairsByStudent[sid] || expectedPairsByStudent[Object.keys(expectedPairsByStudent)[0]] || [];
+          return expectedForThisStudent.length === 0 || expectedForThisStudent.every((p: string) => val.submittedPairs.has(p));
+        }).length;
+
+        if (!cancelled) setFallbackCompleted(completedCount);
+      } catch {
+        if (!cancelled) setFallbackCompleted(null);
+      } finally {
+        if (!cancelled) setLoadingCompleted(false);
+      }
+    }
+
+    fetchCompleted();
+    return () => { cancelled = true; };
+  }, [department, semester, section, phase, completed]);
   // Debug: log rows to check submittedDate and reportedDate
   console.log("SectionReport rows:", rows);
 
@@ -246,20 +317,17 @@ const SectionReport: React.FC<SectionReportProps> = ({
         {/* Use section-level counts returned by backend; do not sum per-row duplicates */}
         {(() => {
           const firstRow = rows[0];
-          const totalSubmitted = typeof submitted === "number"
-            ? submitted
-            : rows.reduce((highest, row) => {
-                return typeof row.submitted === "number" && row.submitted > highest
-                  ? row.submitted
-                  : highest;
-              }, 0);
-          const totalStudents = typeof firstRow?.totalStudents === "number" ? firstRow.totalStudents : 0;
+            const totalStudents = typeof firstRow?.totalStudents === "number" ? firstRow.totalStudents : 0;
           return (
             <div>
               <div><b>Year:</b> {year}</div>
               <div><b>Sem:</b> {getSemesterNumber(semester)}</div>
               <div><b>Section:</b> {section}</div>
-              <div><b>Submitted:</b> {totalSubmitted}</div>
+              {typeof completed === "number" ? (
+                <div><b>Completed:</b> {completed}</div>
+              ) : (
+                (loadingCompleted ? <div><b>Completed:</b> Loading...</div> : (fallbackCompleted !== null ? <div><b>Completed:</b> {fallbackCompleted}</div> : null))
+              )}
               <div><b>Total Students:</b> {totalStudents}</div>
             </div>
           );

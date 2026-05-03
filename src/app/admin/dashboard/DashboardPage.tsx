@@ -1,7 +1,7 @@
 "use client";
 import Head from "next/head";
 import { useState, useEffect } from "react";
-import { getAdminReport, setFeedbackReportDates, getFeedbackReportDates, getFeedbackReportYears } from "../../../api";
+import { getAdminReport, getStudentFeedbackDetails, setFeedbackReportDates, getFeedbackReportDates, getFeedbackReportYears } from "../../../api";
 
 import FilterBar from "../../../components/admin/FilterBar";
 import Tabs from "../../../components/admin/Tabs";
@@ -213,12 +213,11 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState("section");
   const [data, setData] = useState<ReportRow[]>([]);
   const [reportDates, setReportDates] = useState<{ phase1Date?: string; phase2Date?: string } | null>(null);
-  const [reportSummary, setReportSummary] = useState<{ totalStudents?: number; studentsCompletedPhase?: number; completionPercent?: number } | null>(null);
+  const [reportSummary, setReportSummary] = useState<{ totalStudents?: number; submittedCount?: number; completedCount?: number; completionPercent?: number } | null>(null);
 
 
   const fetchReport = async () => {
     try {
-      // setLoading(true); // removed unused loading state 
       // Map phase to backend query expected value (backend expects "1" or "2")
       const phaseMapped = filters.phase === "2" ? "2" : "1";
       // Use academicYear from filters if set, else compute current year
@@ -229,15 +228,96 @@ export default function AdminDashboard() {
         const nextYear = (year + 1).toString().slice(-2);
         academicYear = `${year}-${nextYear}`;
       }
+      
+      // Fetch using the same API as student-submissions page
+      const details = await getStudentFeedbackDetails({
+        branchId: filters.branchId,
+        semester: filters.semester,
+        section: filters.section,
+        phase: phaseMapped,
+        fromDate: filters.fromDate || undefined,
+        toDate: filters.toDate || undefined,
+      });
+      
+      // Also fetch the admin report for the table data
       const res = await getAdminReport({ ...filters, phase: phaseMapped, academicYear, view: tab });
       console.log(res.results)
       setData(res.results || []);
-      setReportSummary(res.summary || null);
+      
+      // Calculate metrics the same way as student-submissions page
+      type FeedbackRecord = {
+        studentId?: string;
+        studentName?: string;
+        name?: string;
+        rollNumber?: string;
+        courseId?: string;
+        courseName?: string;
+        facultyId?: string;
+        facultyName?: string;
+        branchId?: string;
+        section?: string;
+        submittedAt?: string | null;
+      };
+      
+      type DetailsResponse = {
+        records?: FeedbackRecord[];
+        count?: number;
+        expectedPairsByStudent?: Record<string, string[]>;
+      };
+      
+      const detailsTyped = details as DetailsResponse;
+      
+      // Group records by student and track their submissions
+      const byStudent = new Map<string, { submittedPairs: Set<string>; lastSubmittedAt: string | null; studentId?: string; rollNumber?: string; studentName?: string }>();
+      (detailsTyped.records || []).forEach((r: FeedbackRecord) => {
+        const sid = (r.studentId || r.rollNumber || r.studentName || r.name || "unknown").trim().toLowerCase();
+        if (!byStudent.has(sid)) {
+          byStudent.set(sid, {
+            submittedPairs: new Set<string>(),
+            lastSubmittedAt: null,
+            studentId: r.studentId,
+            rollNumber: r.rollNumber,
+            studentName: r.studentName || r.name,
+          });
+        }
+        const entry = byStudent.get(sid)!;
+        const key = `${r.courseId}::${r.facultyId}`;
+        if (key) entry.submittedPairs.add(key);
+        if (r.submittedAt) {
+          const dt = new Date(r.submittedAt);
+          if (!entry.lastSubmittedAt || dt > new Date(entry.lastSubmittedAt)) {
+            entry.lastSubmittedAt = dt.toISOString();
+          }
+        }
+      });
+
+      // Build normalized expected-pairs map for lookup per-student
+      const expectedMap = new Map<string, string[]>();
+      const rawExpected = detailsTyped.expectedPairsByStudent || {};
+      Object.entries(rawExpected).forEach(([k, v]) => {
+        const key = (k || "").toString().trim().toLowerCase();
+        expectedMap.set(key, Array.isArray(v) ? v : []);
+      });
+
+      // Calculate summary metrics
+      const totalStudents = byStudent.size;
+      const submittedCount = Array.from(byStudent.values()).filter(s => s.submittedPairs.size > 0).length;
+      const completedCount = Array.from(byStudent.values()).filter(s => {
+        const pk = (s.studentId && s.studentId.trim().toLowerCase()) || (s.rollNumber && s.rollNumber.trim().toLowerCase()) || (s.studentName && s.studentName.trim().toLowerCase()) || "";
+        const expectedForThisStudent = expectedMap.get(pk) || expectedMap.get(Array.from(expectedMap.keys())[0]) || [];
+        return expectedForThisStudent.length === 0 || expectedForThisStudent.every((p: string) => s.submittedPairs.has(p));
+      }).length;
+      const completionPercent = totalStudents > 0 ? Math.round((completedCount / totalStudents) * 100) : 0;
+      
+      setReportSummary({
+        totalStudents,
+        submittedCount,
+        completedCount,
+        completionPercent
+      });
     } catch {
       setData([]);
       setReportSummary(null);
-    } finally {
-      // setLoading(false); // removed unused loading state
     }
   };
 
@@ -357,14 +437,18 @@ export default function AdminDashboard() {
           </div>
           {reportSummary && tab === "section" && (
             <div className="admin-card-strong mt-4 p-4 sm:p-6 border-2" style={{ borderColor: 'var(--brand)', background: 'linear-gradient(135deg, rgba(10, 152, 146, 0.06), rgba(10, 152, 146, 0.03))' }}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm font-semibold text-(--muted)">Total Students</p>
                   <p className="text-2xl font-bold text-(--ink) mt-1">{reportSummary.totalStudents || 0}</p>
                 </div>
                 <div>
+                  <p className="text-sm font-semibold text-(--muted)">Submitted</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand)' }}>{reportSummary.submittedCount || 0}</p>
+                </div>
+                <div>
                   <p className="text-sm font-semibold text-(--muted)">Completed (All Courses)</p>
-                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand)' }}>{reportSummary.studentsCompletedPhase || 0}</p>
+                  <p className="text-2xl font-bold mt-1" style={{ color: 'var(--brand)' }}>{reportSummary.completedCount || 0}</p>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-(--muted)">Completion Rate</p>
@@ -384,6 +468,7 @@ export default function AdminDashboard() {
                 semester={filters.semester || "ODD"}
                 section={filters.section}
                 submitted={sectionHighestSubmitted}
+                completed={reportSummary?.completedCount}
                 setSection={section => setFilters(f => ({ ...f, section }))}
                 rows={Array.isArray(sortedData) ? sortedData.map((row, idx) => {
                   let reportedDate = "-";
@@ -453,6 +538,7 @@ export default function AdminDashboard() {
                       avgPercent={selectedFacultyRow.percentage?.toFixed(0) || "-"}
                       submitted={facultyHighestSubmitted}
                       totalStudents={selectedFacultyRow.totalStudents}
+                      completed={reportSummary?.completedCount}
                       submittedDate={selectedFacultyRow.submittedDate ? new Date(selectedFacultyRow.submittedDate).toISOString().split('T')[0] : "-"}
                       reportedDate={reportedDate}
                       facultyDisplayName={facultyList.find(f => f.key === selectedFaculty)?.facultyName || ""}
