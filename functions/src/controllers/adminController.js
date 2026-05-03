@@ -44,6 +44,22 @@ function toIsoDate(value) {
 }
 
 
+function pickFirstString(source, keys) {
+  for (const key of keys) {
+    const value = source?.[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+function normalizeId(value) {
+  if (value == null) return "";
+  return String(value).trim();
+}
+
+
 // Get feedback phase dates for a semester in a given academic year (new structure)
 const getFeedbackReportDates = async (req, res) => {
   try {
@@ -254,7 +270,7 @@ const getAdminReport = async (req, res) => {
     }
 
     const studentSnap = await studentQuery.get();
-    const totalStudents = studentSnap.size;
+    let totalStudents = studentSnap.size;
 
     /* ----------------------------- */
     /* STEP 2: FETCH FEEDBACK */
@@ -312,7 +328,7 @@ const getAdminReport = async (req, res) => {
 
     courseQuerySnap.forEach(doc => {
       const course = doc.data();
-      const courseId = course.courseId;
+      const courseId = normalizeId(pickFirstString(course, ["courseId", "Course Code", "courseCode", "CourseCode"]));
 
       // STRICT: Only accept normalized facultyIds array
       if (!Array.isArray(course.facultyIds) || course.facultyIds.length === 0) {
@@ -321,7 +337,8 @@ const getAdminReport = async (req, res) => {
       }
 
       course.facultyIds.forEach(fId => {
-        if (fId) expectedCourseFacultyPairs.add(`${courseId}_${fId}`);
+        const normalizedFacultyId = normalizeId(fId);
+        if (normalizedFacultyId) expectedCourseFacultyPairs.add(`${courseId}::${normalizedFacultyId}`);
       });
     });
 
@@ -329,6 +346,81 @@ const getAdminReport = async (req, res) => {
     if (coursesMissingFacultyIds.length > 0) {
       console.warn(`⚠️ ${coursesMissingFacultyIds.length} course(s) missing facultyIds array: ${coursesMissingFacultyIds.join(", ")}. Run /api/admin/normalize-courses to fix.`);
     }
+
+    /* ----------------------------- */
+    /* BUILD Student -> ExpectedPairs */
+    /* ----------------------------- */
+
+    const studentExpectedPairs = new Map();
+    const studentAliases = new Map();
+
+    studentSnap.forEach(doc => {
+      const student = doc.data();
+      const sid = normalizeId(student.studentId);
+      const rollNumber = normalizeId(pickFirstString(student, ["rollNumber", "Roll Number", "rollno", "Roll No", "rollNo"]));
+      const studentName = normalizeId(pickFirstString(student, ["studentName", "Student Name", "name", "Name"]));
+      if (!sid) return;
+      if (!studentAliases.has(sid)) studentAliases.set(sid, new Set());
+      studentAliases.get(sid).add(sid);
+      if (rollNumber) studentAliases.get(sid).add(rollNumber);
+      if (studentName) studentAliases.get(sid).add(studentName);
+    });
+
+    studentSnap.forEach(doc => {
+      const student = doc.data();
+      const sid = normalizeId(student.studentId).toLowerCase();
+      const rollNumber = normalizeId(pickFirstString(student, ["rollNumber", "Roll Number", "rollno", "Roll No", "rollNo"]));
+      if (sid) {
+        if (!studentAliases.has(sid)) studentAliases.set(sid, new Set());
+        studentAliases.get(sid).add(sid);
+        if (rollNumber) studentAliases.get(sid).add(rollNumber);
+      }
+    });
+
+    // Try to read explicit enrollment mapping from `studentCourses` collection
+    try {
+      let scQuery = db.collection("studentCourses").where("branchId", "==", branchId);
+      if (semester) scQuery = scQuery.where("semester", "==", semester);
+      if (section) scQuery = scQuery.where("section", "==", section);
+      const studentCoursesSnap = await scQuery.get();
+
+      if (!studentCoursesSnap.empty) {
+        studentCoursesSnap.forEach(doc => {
+          const rec = doc.data();
+          const sid = rec.studentId;
+          const cId = normalizeId(pickFirstString(rec, ["courseId", "courseId"])) || normalizeId(rec.courseId);
+          const fId = normalizeId(pickFirstString(rec, ["facultyId", "facultyId"])) || normalizeId(rec.facultyId);
+          if (!sid || !cId || !fId) return;
+          const pair = `${cId}::${fId}`;
+          if (!studentExpectedPairs.has(sid)) studentExpectedPairs.set(sid, new Set());
+          studentExpectedPairs.get(sid).add(pair);
+        });
+      } else {
+        // Fallback: assign section-wide expected pairs to every student in the studentSnap
+        studentSnap.forEach(doc => {
+          const s = doc.data();
+          const sid = s.studentId;
+          if (!sid) return;
+          studentExpectedPairs.set(sid, new Set(expectedCourseFacultyPairs));
+        });
+      }
+    } catch (err) {
+      // If collection doesn't exist or query fails, fallback to section-wide assignment
+      studentSnap.forEach(doc => {
+        const s = doc.data();
+        const sid = s.studentId;
+        if (!sid) return;
+        studentExpectedPairs.set(sid, new Set(expectedCourseFacultyPairs));
+      });
+    }
+    // Use only students who actually have assigned pairs as denominator
+    totalStudents = studentExpectedPairs.size;
+
+    // Build unique expected pairs from studentExpectedPairs (for diagnostics and global checks)
+    const uniqueExpectedPairs = new Set();
+    studentExpectedPairs.forEach(set => {
+      set.forEach(p => uniqueExpectedPairs.add(p));
+    });
 
     /* ----------------------------- */
     /* STEP 4: AGGREGATE & TRACK STUDENT SUBMISSIONS */
@@ -356,8 +448,10 @@ const getAdminReport = async (req, res) => {
         return;
       }
 
-      const key = `${f.courseId}_${f.facultyId}`;
-      const studentId = f.studentId;
+      const normalizedCourseId = normalizeId(f.courseId);
+      const normalizedFacultyId = normalizeId(f.facultyId);
+      const key = `${normalizedCourseId}::${normalizedFacultyId}`;
+      const studentId = normalizeId(f.studentId).toLowerCase();
 
       // Track unique student submissions per pair
       if (!studentSubmissions.has(studentId)) {
@@ -367,8 +461,8 @@ const getAdminReport = async (req, res) => {
 
       if (!map.has(key)) {
         map.set(key, {
-          courseId: f.courseId,
-          facultyId: f.facultyId,
+          courseId: normalizedCourseId,
+          facultyId: normalizedFacultyId,
           responses: [],
           studentSubmitters: new Set(),
           perQuestion: {},
@@ -420,27 +514,39 @@ const getAdminReport = async (req, res) => {
 
     let studentsCompletedPhase = 0;
 
-    studentSubmissions.forEach((submittedPairs, studentId) => {
-      // Check if this student submitted ALL expected pairs
+    // Evaluate completion per student using student-scoped expected pairs
+    studentExpectedPairs.forEach((expectedPairs, studentId) => {
+      if (!expectedPairs || expectedPairs.size === 0) return; // skip students with no assigned pairs
+      const submittedPairs = studentSubmissions.get(studentId) || new Set();
       let completedAll = true;
-      for (const pair of expectedCourseFacultyPairs) {
+      for (const pair of expectedPairs) {
         if (!submittedPairs.has(pair)) {
           completedAll = false;
           break;
         }
       }
-      if (completedAll) {
-        studentsCompletedPhase += 1;
-      }
+      if (completedAll) studentsCompletedPhase += 1;
     });
 
     /* ----------------------------- */
-    /* STEP 4: LOAD MASTER DATA */
+    /* STEP 4: LOAD MASTER DATA (SECTION-FILTERED) */
 /* ----------------------------- */
+
+    // Collect used faculty IDs from expected pairs
+    const usedFacultyIds = new Set();
+    expectedCourseFacultyPairs.forEach(pair => {
+      const [, facultyId] = pair.split("::");
+      if (facultyId) usedFacultyIds.add(facultyId);
+    });
+
+    // Load section-filtered courses and faculties
+    let sectionCourseQuery = db.collection("courses").where("branchId", "==", branchId);
+    if (semester) sectionCourseQuery = sectionCourseQuery.where("semester", "==", semester);
+    if (section) sectionCourseQuery = sectionCourseQuery.where("section", "==", section);
 
     const [facultySnap, courseSnap] = await Promise.all([
       db.collection("faculties").get(),
-      db.collection("courses").get()
+      sectionCourseQuery.get()
     ]);
 
     const facultyMap = new Map();
@@ -448,12 +554,19 @@ const getAdminReport = async (req, res) => {
 
     facultySnap.forEach(doc => {
       const f = doc.data();
-      facultyMap.set(f.facultyId, f);
+      const facultyId = normalizeId(pickFirstString(f, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
+      // Only add if used in this section's expected pairs
+      if (facultyId && usedFacultyIds.has(facultyId)) {
+        facultyMap.set(facultyId, f);
+      }
     });
 
     courseSnap.forEach(doc => {
       const c = doc.data();
-      courseMap.set(c.courseId, c);
+      const courseId = normalizeId(pickFirstString(c, ["courseId", "Course Code", "courseCode", "CourseCode"]));
+      if (courseId) {
+        courseMap.set(courseId, c);
+      }
     });
 
     /* ----------------------------- */
@@ -556,17 +669,18 @@ const getAdminReport = async (req, res) => {
       pairsWithSubmitters[key] = value.studentSubmitters.size;
     });
 
-    // DIAGNOSTIC: Sample student submission sets
+    // DIAGNOSTIC: Sample student submission sets (uses student-scoped expected pairs)
     const sampleStudentSets = [];
     let sampleCount = 0;
     for (const [studentId, pairs] of studentSubmissions.entries()) {
       if (sampleCount >= 3) break;
+      const expectedForStudent = studentExpectedPairs.get(studentId) || new Set();
       sampleStudentSets.push({
         studentId,
         submittedPairs: Array.from(pairs),
         count: pairs.size,
-        completedAll: expectedCourseFacultyPairs.size > 0 && 
-          Array.from(expectedCourseFacultyPairs).every(p => pairs.has(p))
+        completedAll: expectedForStudent.size > 0 && Array.from(expectedForStudent).every(p => pairs.has(p)),
+        expectedCount: expectedForStudent.size
       });
       sampleCount++;
     }
@@ -580,8 +694,8 @@ const getAdminReport = async (req, res) => {
       },
       // Diagnostic fields for debugging
       diagnostic: {
-        expectedPairsCount: expectedCourseFacultyPairs.size,
-        expectedPairsList: Array.from(expectedCourseFacultyPairs),
+        expectedPairsCount: uniqueExpectedPairs.size,
+        expectedPairsList: Array.from(uniqueExpectedPairs),
         pairsWithSubmitters,
         totalUniqueStudentsWhoSubmitted: studentSubmissions.size,
         sampleStudentSets,
@@ -626,14 +740,169 @@ const getStudentFeedbackDetails = async (req, res) => {
       feedbackQuery = feedbackQuery.where("section", "==", section);
     }
 
-    const feedbackSnap = await feedbackQuery.get();
+    let courseQuery2 = db.collection("courses").where("branchId", "==", branchId);
+    if (semester) courseQuery2 = courseQuery2.where("semester", "==", semester);
+    if (section) courseQuery2 = courseQuery2.where("section", "==", section);
+
+    const [feedbackSnap, courseSnap] = await Promise.all([
+      feedbackQuery.get(),
+      courseQuery2.get()
+    ]);
 
     if (feedbackSnap.empty) {
       return res.json({ records: [] });
     }
 
-    // Filter by phase
-    const requestedPhaseField = phase === "1" ? "p1" : "p2";
+    const courseMap = new Map();
+    const usedFacultyIds = new Set();
+
+    courseSnap.forEach((doc) => {
+      const course = doc.data();
+      const courseId = normalizeId(pickFirstString(course, ["courseId", "Course Code", "courseCode", "CourseCode"]));
+      if (!courseId) return;
+      courseMap.set(courseId, course);
+      if (Array.isArray(course.facultyIds)) {
+        course.facultyIds.forEach(fId => {
+          const normalizedFId = normalizeId(fId);
+          if (normalizedFId) usedFacultyIds.add(normalizedFId);
+        });
+      }
+    });
+
+    let studentQuery = db.collection("students")
+      .where("branchId", "==", branchId);
+    if (semester) studentQuery = studentQuery.where("semester", "==", semester);
+    if (section) studentQuery = studentQuery.where("section", "==", section);
+
+    const studentSnap = await studentQuery.get();
+
+    let facultySnap = await db.collection("faculties").get();
+    const facultyMap = new Map();
+    facultySnap.forEach((doc) => {
+      const faculty = doc.data();
+      const facultyId = normalizeId(pickFirstString(faculty, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
+      if (!facultyId || !usedFacultyIds.has(facultyId)) return;
+      facultyMap.set(facultyId, faculty);
+    });
+
+    const studentExpectedPairs = new Map();
+    const studentAliases = new Map();
+    try {
+      let scQuery = db.collection("studentCourses").where("branchId", "==", branchId);
+      if (semester) scQuery = scQuery.where("semester", "==", semester);
+      if (section) scQuery = scQuery.where("section", "==", section);
+      const studentCoursesSnap = await scQuery.get();
+
+      if (!studentCoursesSnap.empty) {
+        studentCoursesSnap.forEach(doc => {
+          const rec = doc.data();
+          const sid = normalizeId(rec.studentId).toLowerCase();
+          const cId = normalizeId(rec.courseId || pickFirstString(rec, ["courseId", "Course Code", "courseCode", "CourseCode"]));
+          const fId = normalizeId(rec.facultyId || pickFirstString(rec, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
+          if (!sid || !cId || !fId) return;
+          if (!studentExpectedPairs.has(sid)) studentExpectedPairs.set(sid, new Set());
+          studentExpectedPairs.get(sid).add(`${cId}::${fId}`);
+        });
+      } else {
+        // Fallback: Build expected pairs from courses collection grouped by section
+        // Each student gets the courses for THEIR section only
+        
+        const sectionCoursesMap = new Map(); // section -> Set of pairs
+        
+        courseSnap.forEach((doc) => {
+          const course = doc.data();
+          const courseId = normalizeId(pickFirstString(course, ["courseId", "Course Code", "courseCode", "CourseCode"]));
+          const courseSection = course.section;
+          
+          if (!courseId || !courseSection) return;
+          
+          let facultyIds = [];
+          if (Array.isArray(course.facultyIds) && course.facultyIds.length > 0) {
+            facultyIds = course.facultyIds;
+          } else if (course.facultyId) {
+            facultyIds = [course.facultyId];
+          } else if (course["Faculty Id"]) {
+            facultyIds = [course["Faculty Id"]];
+          }
+          
+          if (facultyIds.length === 0) return;
+          
+          if (!sectionCoursesMap.has(courseSection)) {
+            sectionCoursesMap.set(courseSection, new Set());
+          }
+          
+          facultyIds.forEach(fId => {
+            const normalizedFId = normalizeId(fId);
+            if (normalizedFId) {
+              sectionCoursesMap.get(courseSection).add(`${courseId}::${normalizedFId}`);
+            }
+          });
+        });
+        
+        // Assign each student their section's courses
+        studentSnap.forEach(doc => {
+          const student = doc.data();
+          const sid = normalizeId(student.studentId).toLowerCase();
+          const studentSection = student.section;
+          
+          if (!sid || !studentSection) return;
+          
+          const sectionPairs = sectionCoursesMap.get(studentSection) || new Set();
+          studentExpectedPairs.set(sid, new Set(sectionPairs));
+        });
+        
+        console.log("DEBUG getStudentFeedbackDetails section-based pairs. Sections found:", sectionCoursesMap.size);
+      }
+    } catch (err) {
+      // Fallback: Build expected pairs from courses collection grouped by section
+      // Each student gets the courses for THEIR section only
+      
+      const sectionCoursesMap = new Map(); // section -> Set of pairs
+      
+      courseSnap.forEach((doc) => {
+        const course = doc.data();
+        const courseId = normalizeId(pickFirstString(course, ["courseId", "Course Code", "courseCode", "CourseCode"]));
+        const courseSection = course.section;
+        
+        if (!courseId || !courseSection) return;
+        
+        let facultyIds = [];
+        if (Array.isArray(course.facultyIds) && course.facultyIds.length > 0) {
+          facultyIds = course.facultyIds;
+        } else if (course.facultyId) {
+          facultyIds = [course.facultyId];
+        } else if (course["Faculty Id"]) {
+          facultyIds = [course["Faculty Id"]];
+        }
+        
+        if (facultyIds.length === 0) return;
+        
+        if (!sectionCoursesMap.has(courseSection)) {
+          sectionCoursesMap.set(courseSection, new Set());
+        }
+        
+        facultyIds.forEach(fId => {
+          const normalizedFId = normalizeId(fId);
+          if (normalizedFId) {
+            sectionCoursesMap.get(courseSection).add(`${courseId}::${normalizedFId}`);
+          }
+        });
+      });
+      
+      // Assign each student their section's courses
+      studentSnap.forEach(doc => {
+        const student = doc.data();
+        const sid = normalizeId(student.studentId).toLowerCase();
+        const studentSection = student.section;
+        
+        if (!sid || !studentSection) return;
+        
+        const sectionPairs = sectionCoursesMap.get(studentSection) || new Set();
+        studentExpectedPairs.set(sid, new Set(sectionPairs));
+      });
+      
+      console.log("DEBUG getStudentFeedbackDetails catch section-based pairs. Sections found:", sectionCoursesMap.size);
+    }
 
     /* ----------------------------- */
     /* STEP 2: BUILD RECORDS */
@@ -668,14 +937,19 @@ const getStudentFeedbackDetails = async (req, res) => {
         answers[key] = f.ratings && f.ratings[key] != null ? f.ratings[key] : null;
       }
 
+      const courseId = normalizeId(pickFirstString(f, ["courseId", "Course Code", "courseCode", "CourseCode"]));
+      const facultyId = normalizeId(pickFirstString(f, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
+      const courseDoc = courseMap.get(courseId) || {};
+      const facultyDoc = facultyMap.get(facultyId) || {};
+
       records.push({
-        studentId: f.studentId,
-        studentName: f.studentName || f.name || "",
-        rollNumber: f.rollNumber || "",
-        courseId: f.courseId,
-        courseName: f.courseName || "",
-        facultyId: f.facultyId,
-        facultyName: f.facultyName || "",
+        studentId: normalizeId(f.studentId),
+        studentName: pickFirstString(f, ["studentName", "Student Name", "name", "Name"]),
+        rollNumber: pickFirstString(f, ["rollNumber", "Roll Number", "rollno", "Roll No", "rollNo"]) || "",
+        courseId,
+        courseName: pickFirstString(f, ["courseName", "Course Name", "CourseName", "name", "Name"]) || pickFirstString(courseDoc, ["courseName", "Course Name", "CourseName", "name", "Name"]) || "",
+        facultyId,
+        facultyName: pickFirstString(f, ["facultyName", "FacultyName", "Faculty Name", "name", "Name"]) || pickFirstString(facultyDoc, ["facultyName", "FacultyName", "Faculty Name", "name", "Name"]) || "",
         branchId: f.branchId,
         semester: f.semester,
         section: f.section,
@@ -687,11 +961,47 @@ const getStudentFeedbackDetails = async (req, res) => {
 
     // Sort by studentId, then courseId
     records.sort((a, b) => {
-      if (a.studentId !== b.studentId) return a.studentId.localeCompare(b.studentId);
-      return a.courseId.localeCompare(b.courseId);
+      if (a.studentId !== b.studentId) return (a.studentId || "").localeCompare(b.studentId || "");
+      return (a.courseId || "").localeCompare(b.courseId || "");
     });
 
-    return res.json({ records, count: records.length });
+    // Add placeholder records for students with no feedback submissions
+    const studentsWithFeedback = new Set();
+    records.forEach(r => {
+      studentsWithFeedback.add(normalizeId(r.studentId).toLowerCase());
+    });
+
+    studentSnap.forEach(doc => {
+      const student = doc.data();
+      const sid = normalizeId(student.studentId).toLowerCase();
+      
+      if (!studentsWithFeedback.has(sid)) {
+        // Add placeholder record for this student with no feedback
+        records.push({
+          studentId: normalizeId(student.studentId),
+          studentName: pickFirstString(student, ["studentName", "Student Name", "name", "Name"]),
+          rollNumber: pickFirstString(student, ["rollNumber", "Roll Number", "rollno", "Roll No", "rollNo"]) || "",
+          courseId: "",
+          courseName: "",
+          facultyId: "",
+          facultyName: "",
+          branchId: student.branchId,
+          semester: student.semester,
+          section: student.section,
+          phase: "",
+          answers: {},
+          submittedAt: null
+        });
+      }
+    });
+
+    return res.json({
+      records,
+      count: records.length,
+      expectedPairsByStudent: Object.fromEntries(
+        Array.from(studentExpectedPairs.entries()).map(([sid, pairs]) => [sid, Array.from(pairs)])
+      )
+    });
 
   } catch (error) {
     console.error("getStudentFeedbackDetails error:", error);
@@ -713,7 +1023,7 @@ const normalizeCoursesSchema = async (req, res) => {
 
     for (const doc of coursesSnap.docs) {
       const course = doc.data();
-      const courseId = course.courseId;
+      const courseId = pickFirstString(course, ["courseId", "Course Code", "courseCode", "CourseCode"]);
 
       // Check if already normalized
       if (Array.isArray(course.facultyIds) && course.facultyIds.length > 0) {
@@ -886,12 +1196,39 @@ const getCourseFacultyPairs = async (req, res) => {
     }
 
     const courseSnap = await courseQuery.get();
+
+    // Collect faculty IDs used in section-filtered courses
+    const usedFacultyIds = new Set();
+    courseSnap.forEach(doc => {
+      const course = doc.data();
+      if (Array.isArray(course.facultyIds)) {
+        course.facultyIds.forEach(fId => {
+          const normalizedFId = normalizeId(fId);
+          if (normalizedFId) usedFacultyIds.add(normalizedFId);
+        });
+      }
+    });
+
+    // Load only faculties used in this section
+    const facultySnap = await db.collection("faculties").get();
+    const facultyMap = new Map();
+    facultySnap.forEach(doc => {
+      const faculty = doc.data();
+      const facultyId = normalizeId(pickFirstString(faculty, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
+      if (facultyId && usedFacultyIds.has(facultyId)) {
+        const facultyName = pickFirstString(faculty, ["facultyName", "FacultyName", "Faculty Name", "name", "Name"]) || "";
+        facultyMap.set(facultyId, facultyName);
+      }
+    });
+
     const pairs = [];
+    const pairDetails = [];
     const coursesMissingFacultyIds = [];
 
     courseSnap.forEach(doc => {
       const course = doc.data();
-      const courseId = course.courseId;
+      const courseId = normalizeId(pickFirstString(course, ["courseId", "Course Code", "courseCode", "CourseCode"]));
+      const courseName = pickFirstString(course, ["courseName", "Course Name", "CourseName", "name", "Name"]);
 
       // STRICT: Only accept normalized facultyIds array
       if (!Array.isArray(course.facultyIds) || course.facultyIds.length === 0) {
@@ -900,14 +1237,25 @@ const getCourseFacultyPairs = async (req, res) => {
       }
 
       course.facultyIds.forEach(fId => {
-        if (fId) {
-          pairs.push(`${courseId}_${fId}`);
+        const normalizedFacultyId = normalizeId(fId);
+        if (normalizedFacultyId) {
+          const pairKey = `${courseId}::${normalizedFacultyId}`;
+          const facultyName = facultyMap.get(normalizedFacultyId) || "";
+          pairs.push(pairKey);
+          pairDetails.push({
+            pairKey,
+            courseId,
+            courseName: courseName || "",
+            facultyId: normalizedFacultyId,
+            facultyName
+          });
         }
       });
     });
 
     return res.json({
       pairs,
+      pairDetails,
       count: pairs.length,
       coursesMissingFacultyIds,
       message: coursesMissingFacultyIds.length > 0 

@@ -215,6 +215,20 @@ export default function FilterBar({ filters, setFilters, onReportDatesFetched }:
             <option value="IV-II">IV-II</option>
           </select>
 
+          {/* Section Filter */}
+          <select
+            className="admin-select min-w-20 px-3 py-2"
+            value={filters.section}
+            onChange={e => setFilters(f => ({ ...f, section: e.target.value }))}
+            disabled={!filters.program}
+          >
+            <option value="">Section</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+
           {/* Phase Filter */}
           <select
             className="admin-select min-w-25 px-3 py-2"
