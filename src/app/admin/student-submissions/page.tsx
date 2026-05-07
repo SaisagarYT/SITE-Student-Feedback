@@ -305,8 +305,10 @@ function StudentSubmissionsPageContent() {
           });
         }
         const entry = byStudent.get(sid)!;
-        const key = `${r.courseId}::${r.facultyId}`;
-        if (key) entry.submittedPairs.add(key);
+        if (r.courseId && r.facultyId && r.submittedAt) {
+          const key = `${r.courseId}::${r.facultyId}`;
+          entry.submittedPairs.add(key);
+        }
         if (r.submittedAt) {
           const dt = new Date(r.submittedAt);
           if (!entry.lastSubmittedAt || dt > new Date(entry.lastSubmittedAt)) {

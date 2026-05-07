@@ -554,10 +554,28 @@ const getAdminReport = async (req, res) => {
 
     facultySnap.forEach(doc => {
       const f = doc.data();
-      const facultyId = normalizeId(pickFirstString(f, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
-      // Only add if used in this section's expected pairs
-      if (facultyId && usedFacultyIds.has(facultyId)) {
-        facultyMap.set(facultyId, f);
+      const facultyId = normalizeId(
+        pickFirstString(f, ["facultyId", "Faculty Id", "FacultyID", "facultyID", "faculty_id"]) ||
+        doc.id
+      );
+      // Index all faculty docs for reliable lookup. Include common name fields.
+      if (facultyId) {
+        const facultyName = pickFirstString(f, [
+          "facultyName",
+          "FacultyName",
+          "Faculty Name",
+          "fullName",
+          "displayName",
+          "name",
+          "Name",
+          "faculty_name"
+        ]) || "";
+        facultyMap.set(facultyId, { ...f, facultyId, facultyName, __docId: doc.id });
+        // also index by doc id in case courses reference doc.id directly
+        const docKey = normalizeId(doc.id);
+        if (docKey && !facultyMap.has(docKey)) {
+          facultyMap.set(docKey, { ...f, facultyId: facultyId, facultyName, __docId: doc.id });
+        }
       }
     });
 
@@ -589,8 +607,15 @@ const getAdminReport = async (req, res) => {
           ? (studentsCompletedPhase / totalStudents) * 100
           : 0;
 
-      const faculty = facultyMap.get(value.facultyId);
       const course = courseMap.get(value.courseId);
+      const courseFacultyIds = Array.isArray(course?.facultyIds) ? course.facultyIds : [];
+      const fallbackFacultyId = normalizeId(
+        value.facultyId ||
+        courseFacultyIds[0] ||
+        pickFirstString(course || {}, ["facultyId", "Faculty Id", "FacultyID", "facultyID", "faculty_id"]) ||
+        ""
+      );
+      const faculty = facultyMap.get(fallbackFacultyId) || facultyMap.get(value.facultyId);
 
       // Per-question averages and counts
       const perQuestionAverages = {};
@@ -611,9 +636,16 @@ const getAdminReport = async (req, res) => {
       const courseName = course?.courseName || "";
       const type = /lab/i.test(courseName) ? "lab" : "theory";
 
+      const facultyDocId = faculty && faculty.__docId ? faculty.__docId : null;
+      const facultyDisplayName = pickFirstString(faculty || {}, ["facultyName", "FacultyName", "Faculty Name", "fullName", "displayName", "name", "Name", "faculty_name"]) ||
+        pickFirstString(course || {}, ["facultyName", "FacultyName", "Faculty Name", "name", "Name", "faculty_name"]) ||
+        pickFirstString(course || {}, ["facultyName", "FacultyName", "Faculty Name", "name", "Name"]) ||
+        (fallbackFacultyId || value.facultyId || "");
+
       results.push({
-        facultyId: value.facultyId,
-        facultyName: faculty?.facultyName || "",
+        facultyId: fallbackFacultyId || value.facultyId || "",
+        facultyDocId: facultyDocId,
+        facultyName: facultyDisplayName,
         courseId: value.courseId,
         courseName,
         type,
@@ -780,9 +812,27 @@ const getStudentFeedbackDetails = async (req, res) => {
     const facultyMap = new Map();
     facultySnap.forEach((doc) => {
       const faculty = doc.data();
-      const facultyId = normalizeId(pickFirstString(faculty, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
-      if (!facultyId || !usedFacultyIds.has(facultyId)) return;
-      facultyMap.set(facultyId, faculty);
+      const facultyId = normalizeId(
+        pickFirstString(faculty, ["facultyId", "Faculty Id", "FacultyID", "facultyID", "faculty_id"]) ||
+        doc.id
+      );
+      if (!facultyId) return;
+      const facultyName = pickFirstString(faculty, [
+        "facultyName",
+        "FacultyName",
+        "Faculty Name",
+        "fullName",
+        "displayName",
+        "name",
+        "Name",
+        "faculty_name"
+      ]) || "";
+      facultyMap.set(facultyId, { ...faculty, facultyId, facultyName, __docId: doc.id });
+      // also index by doc id
+      const docKey = normalizeId(doc.id);
+      if (docKey && !facultyMap.has(docKey)) {
+        facultyMap.set(docKey, { ...faculty, facultyId, facultyName, __docId: doc.id });
+      }
     });
 
     const studentExpectedPairs = new Map();
@@ -938,9 +988,22 @@ const getStudentFeedbackDetails = async (req, res) => {
       }
 
       const courseId = normalizeId(pickFirstString(f, ["courseId", "Course Code", "courseCode", "CourseCode"]));
-      const facultyId = normalizeId(pickFirstString(f, ["facultyId", "Faculty Id", "FacultyID", "facultyID"]));
       const courseDoc = courseMap.get(courseId) || {};
+      const courseFacultyIds = Array.isArray(courseDoc.facultyIds) ? courseDoc.facultyIds : [];
+      const facultyId = normalizeId(
+        pickFirstString(f, ["facultyId", "Faculty Id", "FacultyID", "facultyID", "faculty_id"]) ||
+        courseFacultyIds[0] ||
+        pickFirstString(courseDoc, ["facultyId", "Faculty Id", "FacultyID", "facultyID", "faculty_id"]) ||
+        ""
+      );
       const facultyDoc = facultyMap.get(facultyId) || {};
+
+      const facultyDocId = facultyDoc && facultyDoc.__docId ? facultyDoc.__docId : null;
+      const facultyDisplayName = pickFirstString(f, ["facultyName", "FacultyName", "Faculty Name", "name", "Name", "faculty_name"]) ||
+        pickFirstString(facultyDoc, ["facultyName", "FacultyName", "Faculty Name", "fullName", "displayName", "name", "Name", "faculty_name"]) ||
+        pickFirstString(courseDoc, ["facultyName", "FacultyName", "Faculty Name", "name", "Name", "faculty_name"]) ||
+        facultyId ||
+        "";
 
       records.push({
         studentId: normalizeId(f.studentId),
@@ -949,7 +1012,8 @@ const getStudentFeedbackDetails = async (req, res) => {
         courseId,
         courseName: pickFirstString(f, ["courseName", "Course Name", "CourseName", "name", "Name"]) || pickFirstString(courseDoc, ["courseName", "Course Name", "CourseName", "name", "Name"]) || "",
         facultyId,
-        facultyName: pickFirstString(f, ["facultyName", "FacultyName", "Faculty Name", "name", "Name"]) || pickFirstString(facultyDoc, ["facultyName", "FacultyName", "Faculty Name", "name", "Name"]) || "",
+        facultyDocId: facultyDocId,
+        facultyName: facultyDisplayName,
         branchId: f.branchId,
         semester: f.semester,
         section: f.section,
