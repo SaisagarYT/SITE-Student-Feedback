@@ -14,6 +14,7 @@ adminRouter.post("/logout", logoutAdmin);
 // Phase 2 activation endpoints
 // GET is public (students/frontend may read), POST requires admin
 adminRouter.get("/phase-activation", getPhaseActivation);
+
 adminRouter.post("/phase-activation", verifyAdmin, setPhaseActivation);
 
 // FINAL API: report endpoint only (protected)
